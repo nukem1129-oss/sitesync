@@ -52,12 +52,14 @@ Rules:
 - Use semantic HTML5 elements.
 - Include smooth hover effects and subtle animations.
 - Add a sticky navigation bar with smooth-scroll to sections.
-- Include a hero section, content sections relevant to the business, and a footer.
-- Add a contact section with a placeholder form (no backend needed — show a success message on submit).
+- Include ALL sections the client requests — do not skip or abbreviate any section.
+- Every section must have real placeholder content (not just a heading). Fill in realistic placeholder text, items, and details for each section.
+- Include a contact section with a working placeholder form (show a success message on submit via JavaScript).
+- Always close the HTML properly with </body></html> — never truncate mid-page.
 - Include a small "Powered by SiteSync" badge in the footer.
-- The update email for this site is: ${updateEmail} — include it subtly in the footer or contact section so the client knows how to update their site.
+- The update email for this site is: ${updateEmail} — include it subtly in the footer so the client knows how to update their site.
 
-Important: Generate a COMPLETE, fully functional HTML page. Do not truncate.`
+CRITICAL: You must output the ENTIRE page from <!DOCTYPE html> to </html>. Every section requested must be fully built out with content. Do not stop early.`
 
     const userMessage = `Create a complete website for: ${siteName}
 
@@ -68,8 +70,8 @@ Site subdomain: ${subdomain}
 Update email: ${updateEmail}`
 
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 8192,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 16000,
       messages: [{ role: 'user', content: userMessage }],
       system: systemPrompt,
     })
