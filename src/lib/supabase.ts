@@ -1,10 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-// Browser/client-side Supabase client (uses anon/publishable key)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Browser/client-side Supabase client — uses createBrowserClient so the session
+// is synced to cookies (readable by SSR middleware) as well as localStorage.
+export const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 // Database types — expand as we build out the schema
 export type Database = {
