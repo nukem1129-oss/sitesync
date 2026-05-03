@@ -10,6 +10,7 @@ type Website = {
   name: string
   subdomain: string
   update_email: string
+  status: string
   created_at: string
   updated_at: string
 }
@@ -31,8 +32,9 @@ export default function DashboardPage() {
       setUserEmail(session.user.email ?? '')
 
       const { data } = await supabase
-        .from('websites')
-        .select('*')
+        .from('sites')
+        .select('id, name, subdomain, update_email, status, created_at, updated_at')
+        .eq('owner_id', session.user.id)
         .order('created_at', { ascending: false })
 
       setWebsites(data ?? [])
@@ -101,27 +103,34 @@ export default function DashboardPage() {
                 key={site.id}
                 className="bg-gray-900 border border-gray-800 rounded-2xl p-6 hover:border-gray-600 transition"
               >
-                <h3 className="text-lg font-semibold mb-1">{site.name}</h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  sitesync-psi.vercel.app/sites/{site.subdomain}
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold">{site.name}</h3>
+                  {site.status === 'building' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/50 text-yellow-400 border border-yellow-800">
+                      building
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 mb-4 font-mono">
+                  {site.subdomain}.sitesync.app
                 </p>
 
                 <div className="bg-gray-800 rounded-lg px-3 py-2 mb-4">
-                  <p className="text-xs text-gray-500 mb-0.5">Email to update</p>
-                  <p className="text-sm text-violet-300 font-mono">{site.update_email}</p>
+                  <p className="text-xs text-gray-500 mb-0.5">Email to update your site</p>
+                  <p className="text-sm text-violet-300 font-mono break-all">{site.update_email}</p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <a
-                    href={`/sites/${site.subdomain}`}
+                    href={`https://sitesync-psi.vercel.app/sites/${site.subdomain}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 text-center py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition"
                   >
-                    View site →
+                    Preview site →
                   </a>
-                  <span className="text-xs text-gray-600 self-center ml-2">
-                    Updated {new Date(site.updated_at).toLocaleDateString()}
+                  <span className="text-xs text-gray-600 self-center ml-2 whitespace-nowrap">
+                    {new Date(site.updated_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
