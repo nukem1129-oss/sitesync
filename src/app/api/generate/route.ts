@@ -1,120 +1,294 @@
-import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin } from '@/lib/supabase-server'
+// ============================================================
+// SiteSync v2 — /api/generate
+// Generates a site section-by-section, streaming progress
+// ============================================================
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-server'
+import { planSite, generateSection } from '@/services/sectionGeneratorService'
+import { renderPage } from '@/lib/renderer'
+import type { SectionRow, PageRow } from '@/types/site'
+
+export const maxDuration = 300
 
 export async function POST(request: Request) {
+  // ── 1. Parse & validate ───────────────────────────────────
+  let body: {
+    siteName?: string
+    subdomain?: string
+    prompt?: string
+    userId?: string
+    userEmail?: string
+  }
+
   try {
-    const { siteName, subdomain, prompt, userId, userEmail } = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
-    // Validate required fields
-    if (!siteName || !subdomain || !prompt || !userId || !userEmail) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
+  const { siteName, subdomain, prompt, userId, userEmail } = body
 
-    // Validate subdomain format
-    if (!/^[a-z0-9-]{3,30}$/.test(subdomain)) {
-      return NextResponse.json(
-        { error: 'Subdomain must be 3–30 lowercase letters, numbers, or hyphens' },
-        { status: 400 }
-      )
-    }
+  if (!siteName || !subdomain || !prompt || !userId || !userEmail) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
 
-    // Check subdomain isn't already taken
-    const { data: existing } = await supabaseAdmin
-      .from('websites')
-      .select('id')
-      .eq('subdomain', subdomain)
-      .single()
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'That subdomain is already taken. Please choose another.' },
-        { status: 409 }
-      )
-    }
-
-    // Build the update email address for this site
-    const updateEmail = `update+${subdomain}@sitesync.app`
-
-    // ── Generate the website HTML with Claude ──────────────────────────────
-    const systemPrompt = `You are an expert web developer and designer. Your job is to generate complete,
-beautiful, production-ready HTML websites based on user descriptions.
-
-Rules:
-- Output ONLY valid HTML. No markdown, no explanation, no code fences.
-- Use a single self-contained HTML file with embedded CSS (in <style> tags) and JavaScript (in <script> tags).
-- Make the design modern, professional, and visually impressive. Use a consistent color scheme.
-- Include responsive design (works on mobile and desktop).
-- Use semantic HTML5 elements.
-- Include smooth hover effects and subtle animations.
-- Add a sticky navigation bar with smooth-scroll to sections.
-- Include ALL sections the client requests — do not skip or abbreviate any section.
-- Every section must have real placeholder content (not just a heading). Fill in realistic placeholder text, items, and details for each section.
-- Include a contact section with a working placeholder form (show a success message on submit via JavaScript).
-- Always close the HTML properly with </body></html> — never truncate mid-page.
-- Include a small "Powered by SiteSync" badge in the footer.
-- The update email for this site is: ${updateEmail} — include it subtly in the footer so the client knows how to update their site.
-
-CRITICAL: You must output the ENTIRE page from <!DOCTYPE html> to </html>. Every section requested must be fully built out with content. Do not stop early.`
-
-    const userMessage = `Create a complete website for: ${siteName}
-
-Client description:
-${prompt}
-
-Site subdomain: ${subdomain}
-Update email: ${updateEmail}`
-
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16000,
-      messages: [{ role: 'user', content: userMessage }],
-      system: systemPrompt,
-    })
-
-    const htmlContent = message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => (block as { type: 'text'; text: string }).text)
-      .join('')
-
-    if (!htmlContent.includes('<html') && !htmlContent.includes('<!DOCTYPE')) {
-      return NextResponse.json(
-        { error: 'AI generation failed. Please try again.' },
-        { status: 500 }
-      )
-    }
-
-    // ── Save to Supabase ───────────────────────────────────────────────────
-    const { data: website, error: dbError } = await supabaseAdmin
-      .from('websites')
-      .insert({
-        owner_id: userId,
-        name: siteName,
-        subdomain,
-        html_content: htmlContent,
-        update_email: updateEmail,
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error('DB insert error:', dbError)
-      return NextResponse.json(
-        { error: 'Failed to save website. Please try again.' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ success: true, websiteId: website.id, subdomain })
-  } catch (err) {
-    console.error('Generate route error:', err)
+  if (!/^[a-z0-9-]{3,30}$/.test(subdomain)) {
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: 'Subdomain must be 3–30 lowercase letters, numbers, or hyphens' },
+      { status: 400 }
     )
   }
+
+  // ── 2. Check subdomain availability ──────────────────────
+  const { data: existing } = await supabaseAdmin
+    .from('sites')
+    .select('id')
+    .eq('subdomain', subdomain)
+    .single()
+
+  if (existing) {
+    return NextResponse.json(
+      { error: 'That subdomain is already taken. Please choose another.' },
+      { status: 409 }
+    )
+  }
+
+  const updateEmail = `update+${subdomain}@mg.sceneengineering.com`
+  const encoder = new TextEncoder()
+
+  // ── 3. Open SSE stream ────────────────────────────────────
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+      }
+
+      let siteId: string | null = null
+
+      try {
+        // ── 4. Plan the site (fast Haiku call) ─────────────
+        send({ type: 'status', message: 'Planning your site…' })
+        const plan = await planSite(siteName!, prompt!)
+        const { theme } = plan
+        const homePage = plan.pages.find(p => p.isHomepage) ?? plan.pages[0]
+
+        send({ type: 'status', message: 'Creating site record…' })
+
+        // ── 5. Create site record (status: building) ───────
+        const { data: siteRow, error: siteErr } = await supabaseAdmin
+          .from('sites')
+          .insert({
+            owner_id: userId,
+            name: siteName,
+            subdomain,
+            theme,
+            authorized_senders: [userEmail!.toLowerCase().trim()],
+            update_email: updateEmail,
+            form_recipient_email: userEmail,
+            status: 'building',
+          })
+          .select()
+          .single()
+
+        if (siteErr || !siteRow) {
+          console.error('Site insert error:', siteErr)
+          send({ type: 'error', message: 'Failed to create site record.' })
+          controller.close()
+          return
+        }
+        siteId = siteRow.id
+
+        // ── 6. Create all pages ────────────────────────────
+        const pageInserts = plan.pages.map((p, i) => ({
+          site_id: siteId!,
+          slug: p.slug,
+          title: p.title,
+          nav_label: p.navLabel,
+          nav_order: i,
+          is_homepage: p.isHomepage,
+          published: true,
+        }))
+
+        const { data: pageRows, error: pageErr } = await supabaseAdmin
+          .from('pages')
+          .insert(pageInserts)
+          .select()
+
+        if (pageErr || !pageRows?.length) {
+          console.error('Pages insert error:', pageErr)
+          send({ type: 'error', message: 'Failed to create pages.' })
+          controller.close()
+          return
+        }
+
+        // ── 7. Generate sections for home page ─────────────
+        const homePageRow = pageRows.find((p: PageRow) => p.is_homepage) as PageRow
+        const totalSections = homePage.sections.length
+        const builtSections: SectionRow[] = []
+
+        for (let i = 0; i < homePage.sections.length; i++) {
+          const sectionPlan = homePage.sections[i]
+          send({
+            type: 'progress',
+            message: `Building ${sectionPlan.label}…`,
+            current: i + 1,
+            total: totalSections,
+          })
+
+          const { content, sectionCss, sectionJs } = await generateSection(
+            sectionPlan.type,
+            sectionPlan.label,
+            siteName!,
+            prompt!,
+            theme
+          )
+
+          const { data: sectionRow, error: secErr } = await supabaseAdmin
+            .from('sections')
+            .insert({
+              page_id: homePageRow.id,
+              site_id: siteId!,
+              type: sectionPlan.type,
+              order_index: i,
+              label: sectionPlan.label,
+              content,
+              section_css: sectionCss,
+              section_js: sectionJs,
+              published: true,
+            })
+            .select()
+            .single()
+
+          if (secErr || !sectionRow) {
+            console.error(`Section insert error (${sectionPlan.type}):`, secErr)
+            continue // non-fatal, keep building
+          }
+
+          builtSections.push(sectionRow as SectionRow)
+        }
+
+        // ── 8. Render full HTML from sections ──────────────
+        send({ type: 'status', message: 'Rendering site…' })
+
+        const html = renderPage({
+          page: homePageRow,
+          sections: builtSections,
+          theme,
+          siteName: siteName!,
+          allPages: pageRows as PageRow[],
+          updateEmail,
+        })
+
+        // ── 9. Cache rendered HTML for fast serving ─────────
+        const { error: cacheErr } = await supabaseAdmin
+          .from('site_html_cache')
+          .upsert({
+            site_id: siteId!,
+            subdomain,
+            html_content: html,
+            updated_at: new Date().toISOString(),
+          })
+
+        if (cacheErr) {
+          console.error('HTML cache write error:', cacheErr)
+        }
+
+        // ── 10. Save initial version snapshot ──────────────
+        await supabaseAdmin.from('versions').insert({
+          site_id: siteId!,
+          page_id: homePageRow.id,
+          sections_snapshot: builtSections as unknown as object,
+          trigger: 'initial_generation',
+          triggered_by: userEmail,
+          update_instructions: prompt,
+        })
+
+        // ── 11. Activate site ───────────────────────────────
+        await supabaseAdmin
+          .from('sites')
+          .update({ status: 'active' })
+          .eq('id', siteId!)
+
+        send({ type: 'done', subdomain, siteId: siteId! })
+      } catch (err) {
+        console.error('Generate error:', err)
+
+        // Clean up partial site
+        if (siteId) {
+          await supabaseAdmin.from('sites').delete().eq('id', siteId)
+        }
+
+        send({ type: 'error', message: 'Site generation failed. Please try again.' })
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
+}
+: pageRows as PageRow[],
+          updateEmail,
+        })
+
+        // ── 9. Cache rendered HTML for fast serving ─────────
+        const { error: cacheErr } = await supabaseAdmin
+          .from('site_html_cache')
+          .upsert({
+            site_id: siteId!,
+            subdomain,
+            html_content: html,
+            updated_at: new Date().toISOString(),
+          })
+
+        if (cacheErr) {
+          console.error('HTML cache write error:', cacheErr)
+        }
+
+        // ── 10. Save initial version snapshot ──────────────
+        await supabaseAdmin.from('versions').insert({
+          site_id: siteId!,
+          page_id: homePageRow.id,
+          sections_snapshot: builtSections as unknown as object,
+          trigger: 'initial_generation',
+          triggered_by: userEmail,
+          update_instructions: prompt,
+        })
+
+        // ── 11. Activate site ───────────────────────────────
+        await supabaseAdmin
+          .from('sites')
+          .update({ status: 'active' })
+          .eq('id', siteId!)
+
+        send({ type: 'done', subdomain, siteId: siteId! })
+      } catch (err) {
+        console.error('Generate error:', err)
+
+        // Clean up partial site
+        if (siteId) {
+          await supabaseAdmin.from('sites').delete().eq('id', siteId)
+        }
+
+        send({ type: 'error', message: 'Site generation failed. Please try again.' })
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
