@@ -2,7 +2,6 @@
 // SiteSync v2 — HTML renderer
 // Assembles a full HTML page from section rows
 // ============================================================
-
 import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
 
 interface RenderPageArgs {
@@ -41,13 +40,11 @@ interface FormField {
   required?: boolean
   options?: OptionItem[]
 }
-
 function renderFormField(field: FormField, sid: string): string {
   const req = field.required ? ' required' : ''
   const ph = field.placeholder ? ` placeholder="${esc(field.placeholder)}"` : ''
   const base = 'padding:0.65rem 0.9rem;border:1.5px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:1rem;width:100%;box-sizing:border-box;outline:none;'
   const lbl = `<label style="font-weight:500;font-size:0.9rem;color:#374151;">${esc(field.label)}${field.required ? ' *' : ''}</label>`
-
   switch (field.type) {
     case 'textarea':
       return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<textarea name="${esc(field.name)}"${ph}${req} rows="4" style="${base}resize:vertical;"></textarea></div>`
@@ -63,7 +60,6 @@ function renderFormField(field: FormField, sid: string): string {
 }
 
 // ── Section type renderers ────────────────────────────────────
-
 function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
   const bg = String(c.backgroundValue ?? `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
   return `<section style="background:${bg};padding:6rem 1.5rem;text-align:center;color:#fff;">
@@ -134,7 +130,7 @@ function renderTestimonials(c: Record<string, unknown>): string {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;">
       ${tms.map(t => `<div style="background:#fff;border-radius:8px;padding:2rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
         ${t.rating ? `<div style="color:#f59e0b;margin-bottom:1rem;">${'★'.repeat(Number(t.rating))}</div>` : ''}
-        <p style="color:#374151;line-height:1.75;font-style:italic;margin-bottom:1.5rem;">"${esc(String(t.quote ?? ''))}"</p>
+        <p style="color:#374151;line-height:1.75;font-style:italic;margin-bottom:1.5rem;">"<em>${esc(String(t.quote ?? ''))}</em>"</p>
         <div style="font-weight:700;">${esc(String(t.author ?? ''))}</div>
         ${(t.role || t.company) ? `<div style="font-size:0.85rem;color:#6b7280;">${[t.role, t.company].filter(Boolean).map(x => esc(String(x))).join(', ')}</div>` : ''}
       </div>`).join('')}
@@ -145,17 +141,16 @@ function renderTestimonials(c: Record<string, unknown>): string {
 
 function renderContact(c: Record<string, unknown>, sid: string, t: ThemeConfig): string {
   const fields = Array.isArray(c.formFields) ? (c.formFields as FormField[]) : [
-    { type: 'text', name: 'name', label: 'Full Name', required: true },
-    { type: 'email', name: 'email', label: 'Email', required: true },
-    { type: 'textarea', name: 'message', label: 'Message', required: true },
+    { type: 'text',     name: 'name',    label: 'Full Name', required: true },
+    { type: 'email',    name: 'email',   label: 'Email',     required: true },
+    { type: 'textarea', name: 'message', label: 'Message',   required: true },
   ]
   const submitLabel = String(c.submitLabel ?? 'Send Message')
   const contactInfo = [
-    c.email && `📧 ${esc(String(c.email))}`,
-    c.phone && `📞 ${esc(String(c.phone))}`,
+    c.email   && `📧 ${esc(String(c.email))}`,
+    c.phone   && `📞 ${esc(String(c.phone))}`,
     c.address && `📍 ${esc(String(c.address))}`,
   ].filter(Boolean).join(' &nbsp;&middot;&nbsp; ')
-
   return `<section id="contact" style="padding:5rem 1.5rem;background:#fff;">
   <div style="max-width:800px;margin:0 auto;">
     <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '2rem'};">${esc(String(c.heading ?? 'Get In Touch'))}</h2>
@@ -163,7 +158,7 @@ function renderContact(c: Record<string, unknown>, sid: string, t: ThemeConfig):
     ${contactInfo ? `<p style="text-align:center;margin-bottom:2rem;color:#374151;">${contactInfo}</p>` : ''}
     <form id="form_${sid}" style="background:#f9fafb;padding:2.5rem;border-radius:8px;display:flex;flex-direction:column;gap:1.25rem;" onsubmit="submitForm_${sid}(event)">
       <div id="form_msg_${sid}" style="display:none;padding:1rem;border-radius:6px;"></div>
-      ${fields.map(f => renderFormField(f, sid)).join('\n      ')}
+      ${fields.map(f => renderFormField(f, sid)).join('\n  ')}
       <button type="submit" style="background:${esc(t.primaryColor)};color:#fff;padding:0.85rem 2rem;border-radius:6px;font-weight:700;font-size:1rem;cursor:pointer;border:none;align-self:flex-start;">${esc(submitLabel)}</button>
     </form>
   </div>
@@ -181,22 +176,130 @@ async function submitForm_${sid}(e){
     if(res.ok){msg.style.display='block';msg.style.background='#d1fae5';msg.style.color='#065f46';msg.textContent='Message sent! We will be in touch soon.';form.reset();}
     else{throw new Error('Failed');}
   }catch{msg.style.display='block';msg.style.background='#fee2e2';msg.style.color='#991b1b';msg.textContent='Something went wrong. Please try again.';}
-  btn.disabled=false;btn.textContent='${submitLabel.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}';
+  btn.disabled=false;btn.textContent='${submitLabel.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}';
 }
 </script>`
 }
 
+// ── NEW: Page-header renderer ─────────────────────────────────
+function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): string {
+  const bg = String(c.backgroundValue ?? t.primaryColor)
+  return `<section style="background:${bg};padding:4rem 1.5rem;text-align:center;color:#fff;">
+  <div style="max-width:800px;margin:0 auto;">
+    <h1 style="font-size:clamp(1.75rem,4vw,3rem);font-weight:800;line-height:1.15;margin-bottom:1rem;">${esc(String(c.heading ?? ''))}</h1>
+    ${c.subheading ? `<p style="font-size:1.1rem;opacity:0.9;max-width:600px;margin:0 auto;">${esc(String(c.subheading))}</p>` : ''}
+  </div>
+</section>`
+}
+
+// ── NEW: Features renderer ────────────────────────────────────
+function renderFeatures(c: Record<string, unknown>, t: ThemeConfig): string {
+  const features = Array.isArray(c.features) ? (c.features as Array<Record<string, unknown>>) : []
+  const altBg = (c.background === 'dark') ? '#1f2937' : '#fff'
+  const altText = (c.background === 'dark') ? '#fff' : '#222'
+  return `<section style="padding:5rem 1.5rem;background:${altBg};color:${altText};">
+  <div style="max-width:1100px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};color:${altText};">${esc(String(c.heading ?? 'Features'))}</h2>
+    ${c.subheading ? `<p style="text-align:center;color:${c.background === 'dark' ? '#9ca3af' : '#6b7280'};font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2rem;">
+      ${features.map(f => `<div style="padding:1.75rem;border-radius:8px;background:${c.background === 'dark' ? '#374151' : '#f9fafb'};">
+        ${f.icon ? `<div style="font-size:2.25rem;margin-bottom:0.75rem;">${String(f.icon)}</div>` : `<div style="width:48px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:0.75rem;"></div>`}
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;color:${altText};">${esc(String(f.title ?? ''))}</h3>
+        <p style="color:${c.background === 'dark' ? '#d1d5db' : '#4b5563'};line-height:1.7;font-size:0.95rem;">${esc(String(f.description ?? ''))}</p>
+      </div>`).join('')}
+    </div>
+  </div>
+</section>`
+}
+
+// ── NEW: Process renderer ─────────────────────────────────────
+function renderProcess(c: Record<string, unknown>, t: ThemeConfig): string {
+  const steps = Array.isArray(c.steps) ? (c.steps as Array<Record<string, unknown>>) : []
+  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
+  <div style="max-width:900px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'How It Works'))}</h2>
+    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
+    <div style="display:flex;flex-direction:column;gap:2rem;">
+      ${steps.map((step, i) => `<div style="display:flex;gap:1.5rem;align-items:flex-start;">
+        <div style="flex-shrink:0;width:48px;height:48px;border-radius:50%;background:${esc(t.primaryColor)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;">${i + 1}</div>
+        <div>
+          <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;">${esc(String(step.title ?? ''))}</h3>
+          <p style="color:#4b5563;line-height:1.7;">${esc(String(step.description ?? ''))}</p>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+</section>`
+}
+
+// ── NEW: FAQ renderer ─────────────────────────────────────────
+function renderFAQ(c: Record<string, unknown>): string {
+  const faqs = Array.isArray(c.faqs) ? (c.faqs as Array<Record<string, unknown>>) : []
+  return `<section style="padding:5rem 1.5rem;background:#fff;">
+  <div style="max-width:800px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'Frequently Asked Questions'))}</h2>
+    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+      ${faqs.map(f => `<details style="border:1.5px solid #e5e7eb;border-radius:8px;padding:1.25rem 1.5rem;">
+        <summary style="font-weight:600;font-size:1rem;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          ${esc(String(f.question ?? ''))}
+          <span style="font-size:1.25rem;color:#6b7280;">+</span>
+        </summary>
+        <p style="margin-top:0.75rem;color:#4b5563;line-height:1.7;">${esc(String(f.answer ?? ''))}</p>
+      </details>`).join('')}
+    </div>
+  </div>
+</section>`
+}
+
+// ── NEW: Pricing renderer ─────────────────────────────────────
+function renderPricing(c: Record<string, unknown>, t: ThemeConfig): string {
+  const tiers = Array.isArray(c.tiers) ? (c.tiers as Array<Record<string, unknown>>) : []
+  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'Pricing'))}</h2>
+    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;align-items:start;">
+      ${tiers.map(tier => {
+        const featured = !!tier.featured
+        const features = Array.isArray(tier.features) ? (tier.features as string[]) : []
+        return `<div style="background:${featured ? esc(t.primaryColor) : '#fff'};color:${featured ? '#fff' : '#222'};border-radius:12px;padding:2.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.1);${featured ? 'transform:scale(1.03);' : ''}">
+          ${tier.badge ? `<div style="display:inline-block;background:${featured ? 'rgba(255,255,255,0.2)' : esc(t.primaryColor)};color:${featured ? '#fff' : '#fff'};padding:0.2rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:700;margin-bottom:1rem;">${esc(String(tier.badge))}</div>` : ''}
+          <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">${esc(String(tier.name ?? ''))}</h3>
+          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;">${esc(String(tier.price ?? ''))}</div>
+          ${tier.period ? `<div style="opacity:0.75;font-size:0.9rem;margin-bottom:1.5rem;">${esc(String(tier.period))}</div>` : '<div style="margin-bottom:1.5rem;"></div>'}
+          ${tier.description ? `<p style="opacity:0.85;font-size:0.95rem;margin-bottom:1.5rem;">${esc(String(tier.description))}</p>` : ''}
+          <ul style="list-style:none;padding:0;margin:0 0 2rem;display:flex;flex-direction:column;gap:0.6rem;">
+            ${features.map(f => `<li style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.95rem;">
+              <span style="color:${featured ? '#fff' : esc(t.primaryColor)};font-weight:700;">✓</span>
+              <span>${esc(f)}</span>
+            </li>`).join('')}
+          </ul>
+          ${tier.ctaText ? `<a href="${esc(String(tier.ctaLink ?? '#contact'))}" style="display:block;text-align:center;padding:0.85rem;border-radius:6px;font-weight:700;text-decoration:none;background:${featured ? '#fff' : esc(t.primaryColor)};color:${featured ? esc(t.primaryColor) : '#fff'};">${esc(String(tier.ctaText))}</a>` : ''}
+        </div>`
+      }).join('')}
+    </div>
+  </div>
+</section>`
+}
+
 // ── Section dispatcher ────────────────────────────────────────
 // Contact always uses JSON renderer (avoids legacy [object Object] bug).
-// Other types use legacy content.html if present, otherwise JSON renderer.
+// New section types (page-header, features, process, faq, pricing) are JSON-only.
+// Older types fall back to legacy content.html if present.
 function renderSection(s: SectionRow, theme: ThemeConfig): string {
   const c = s.content as Record<string, unknown>
   const legacyHtml = typeof (c as { html?: string }).html === 'string'
     ? (c as { html: string }).html
     : null
 
-  if (s.type === 'contact') return renderContact(c, s.id, theme)
-  if (legacyHtml) return legacyHtml
+  if (s.type === 'contact')     return renderContact(c, s.id, theme)
+  if (s.type === 'page-header') return renderPageHeader(c, theme)
+  if (s.type === 'features')    return renderFeatures(c, theme)
+  if (s.type === 'process')     return renderProcess(c, theme)
+  if (s.type === 'faq')         return renderFAQ(c)
+  if (s.type === 'pricing')     return renderPricing(c, theme)
+  if (legacyHtml)               return legacyHtml
 
   switch (s.type) {
     case 'hero':         return renderHero(c, theme)
@@ -216,9 +319,9 @@ export function renderPage({
   allPages,
   updateEmail,
 }: RenderPageArgs): string {
-  const primaryColor = theme?.primaryColor || '#6c63ff'
+  const primaryColor   = theme?.primaryColor   || '#6c63ff'
   const secondaryColor = theme?.secondaryColor || '#4a47a3'
-  const fontFamily = theme?.fontFamily || 'Inter, sans-serif'
+  const fontFamily     = theme?.fontFamily     || 'Inter, sans-serif'
 
   const navLinks = allPages
     .filter((p) => p.published)
@@ -257,20 +360,29 @@ export function renderPage({
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --primary: ${primaryColor}; --secondary: ${secondaryColor}; --font: ${fontFamily}; }
+    :root {
+      --primary: ${primaryColor};
+      --secondary: ${secondaryColor};
+      --font: ${fontFamily};
+    }
     html { scroll-behavior: smooth; }
     body { font-family: var(--font); line-height: 1.6; color: #222; }
     img { max-width: 100%; height: auto; display: block; }
     a { color: inherit; }
-    button, .btn { cursor: pointer; border: none; padding: 0.75rem 1.75rem; border-radius: 6px; font-family: var(--font); font-weight: 600; font-size: 1rem; background: var(--primary); color: #fff; transition: opacity 0.2s; }
+    button, .btn {
+      cursor: pointer; border: none; padding: 0.75rem 1.75rem;
+      border-radius: 6px; font-family: var(--font); font-weight: 600;
+      font-size: 1rem; background: var(--primary); color: #fff; transition: opacity 0.2s;
+    }
     button:hover, .btn:hover { opacity: 0.85; }
     section { width: 100%; }
     .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] summary span:last-child { transform: rotate(45deg); display: inline-block; }
     ${sectionStyles}
   </style>
 </head>
 <body>
-
   <!-- Navigation -->
   <nav style="position:sticky;top:0;z-index:999;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
     <a href="./" style="font-weight:800;font-size:1.25rem;text-decoration:none;color:${esc(primaryColor)};">${esc(siteName)}</a>
@@ -290,7 +402,6 @@ export function renderPage({
       <a href="mailto:${updateEmail}" style="color:var(--primary);text-decoration:none;">${updateEmail}</a>
     </p>
   </footer>
-
   ${sectionScripts ? `<script>\n${sectionScripts}\n</script>` : ''}
 </body>
 </html>`
