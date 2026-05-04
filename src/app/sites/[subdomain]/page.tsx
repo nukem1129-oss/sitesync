@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase-server'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ subdomain: string }>
 }
@@ -44,7 +46,7 @@ export default async function SitePage({ params }: Props) {
 
   return (
     <html suppressHydrationWarning>
-      <body style={{ margin: 0, padding: 0 }} dangerouslySetInnerHTML={{ __html: legacy.html_content }} />
+      <body style={{ margin: 0, padding: 0 }} dangerouslySetInnerHTML={{ __html: legacy!.html_content }} />
     </html>
   )
 }
