@@ -104,7 +104,7 @@ export async function POST(request: Request) {
           .order('nav_order', { ascending: true })
 
         const maxNavOrder = existingPages?.length
-          ? Math.max(...existingPages.map((p: PageRow) => p.nav_order))
+          ? Math.max(...existingPages.map((p) => p.nav_order as number))
           : 0
 
         const { data: newPageRow, error: pageErr } = await supabaseAdmin
