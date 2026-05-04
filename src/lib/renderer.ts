@@ -31,7 +31,7 @@ export function renderPage({
     .sort((a, b) => a.nav_order - b.nav_order)
     .map(
       (p) =>
-        `<a href="${p.is_homepage ? './' : p.slug}" style="text-decoration:none;color:#333;font-weight:500;font-size:0.95rem;">${esc(p.nav_label)}</a>`
+        `<a href="${p.is_homepage ? './' : p.slug}" style="text-decoration:none;color:#333;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
     )
     .join('')
 
