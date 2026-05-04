@@ -5,9 +5,9 @@
 // ============================================================
 
 import { notFound } from 'next/navigation'
+import { supabaseAdmin } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
-import { supabaseAdmin } from '@/lib/supabase-server'
 
 interface Props {
   params: Promise<{ subdomain: string; page: string }>
