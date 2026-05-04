@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planSite, generateSection } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
-import type { SectionRow, PageRow, Theme } from '@/types/site'
+import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
 
 export const maxDuration = 300
 
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const theme = site.theme as Theme
+  const theme = site.theme as ThemeConfig
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -169,7 +169,9 @@ export async function POST(request: Request) {
         await supabaseAdmin.from('site_html_cache').upsert({
           site_id: siteId, subdomain: `${site.subdomain}/${pageSlug}`,
           html_content: newPageHtml, updated_at: new Date().toISOString(),
-        })
+        },
+        { onConflict: 'subdomain' }
+)
 
         send({ type: 'status', message: 'Updating homepage nav…' })
 
@@ -188,7 +190,9 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('site_html_cache').upsert({
               site_id: siteId, subdomain: site.subdomain,
               html_content: homeHtml, updated_at: new Date().toISOString(),
-            })
+            },
+            { onConflict: 'subdomain' }
+)
           }
         }
 
@@ -206,7 +210,9 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('site_html_cache').upsert({
               site_id: siteId, subdomain: `${site.subdomain}/${otherPage.slug}`,
               html_content: otherHtml, updated_at: new Date().toISOString(),
-            })
+            },
+            { onConflict: 'subdomain' }
+)
           }
         }
 
