@@ -4,24 +4,30 @@
 
 export type SectionType =
   | 'hero'
+  | 'page-header'
   | 'about'
   | 'services'
+  | 'features'
+  | 'process'
   | 'team'
   | 'testimonials'
+  | 'faq'
+  | 'pricing'
   | 'gallery'
   | 'contact'
   | 'custom'
 
 export interface Theme {
-  primaryColor: string      // e.g. "#2563eb"
-  secondaryColor: string    // e.g. "#1e40af"
-  accentColor: string       // e.g. "#f59e0b"
-  backgroundColor: string   // e.g. "#ffffff"
-  textColor: string         // e.g. "#111827"
-  fontFamily: string        // e.g. "'Inter', sans-serif"
-  headingFont: string       // e.g. "'Poppins', sans-serif"
-  borderRadius: string      // e.g. "8px"
+  primaryColor: string    // e.g. "#2563eb"
+  secondaryColor: string  // e.g. "#1e40af"
+  accentColor: string     // e.g. "#f59e0b"
+  backgroundColor: string // e.g. "#ffffff"
+  textColor: string       // e.g. "#111827"
+  fontFamily: string      // e.g. "'Inter', sans-serif"
+  headingFont: string     // e.g. "'Poppins', sans-serif"
+  borderRadius: string    // e.g. "8px"
 }
+
 export type ThemeConfig = Theme
 
 // ── Per-section content shapes ────────────────────────────────
@@ -32,7 +38,13 @@ export interface HeroContent {
   ctaText: string
   ctaLink: string
   backgroundType: 'color' | 'gradient'
-  backgroundValue: string   // hex color or CSS gradient
+  backgroundValue: string
+}
+
+export interface PageHeaderContent {
+  heading: string
+  subheading?: string
+  backgroundValue?: string
 }
 
 export interface AboutContent {
@@ -41,10 +53,59 @@ export interface AboutContent {
   stats?: Array<{ label: string; value: string }>
 }
 
+export interface Feature {
+  title: string
+  description: string
+  icon?: string
+}
+
+export interface FeaturesContent {
+  heading: string
+  subheading?: string
+  features: Feature[]
+}
+
+export interface ProcessStep {
+  number: number
+  title: string
+  description: string
+}
+
+export interface ProcessContent {
+  heading: string
+  subheading?: string
+  steps: ProcessStep[]
+}
+
+export interface FAQ {
+  question: string
+  answer: string
+}
+
+export interface FAQContent {
+  heading: string
+  faqs: FAQ[]
+}
+
+export interface PricingTier {
+  name: string
+  price: string
+  description?: string
+  features: string[]
+  cta: string
+  highlighted?: boolean
+}
+
+export interface PricingContent {
+  heading: string
+  subheading?: string
+  tiers: PricingTier[]
+}
+
 export interface Service {
   title: string
   description: string
-  icon?: string             // emoji or lucide icon name
+  icon?: string
   price?: string
 }
 
@@ -70,7 +131,7 @@ export interface Testimonial {
   author: string
   role?: string
   company?: string
-  rating?: number           // 1-5
+  rating?: number
 }
 
 export interface TestimonialsContent {
@@ -86,7 +147,7 @@ export interface FormField {
   label: string
   placeholder?: string
   required?: boolean
-  options?: string[]        // for select fields
+  options?: string[]
 }
 
 export interface ContactContent {
@@ -106,7 +167,12 @@ export interface CustomContent {
 
 export type SectionContent =
   | HeroContent
+  | PageHeaderContent
   | AboutContent
+  | FeaturesContent
+  | ProcessContent
+  | FAQContent
+  | PricingContent
   | ServicesContent
   | TeamContent
   | TestimonialsContent
@@ -169,9 +235,10 @@ export interface SitePlan {
     title: string
     navLabel: string
     isHomepage: boolean
-    sections: Array<{
-      type: SectionType
-      label: string
-    }>
+    sections: Array<{ type: SectionType; label: string }>
   }>
 }
+
+// ── Page plan (returned by planPage for sub-page generation) ──
+
+export type PagePlan = Array<{ type: SectionType; label: string }>
