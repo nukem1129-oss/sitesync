@@ -5,6 +5,8 @@
 // ============================================================
 
 import { notFound } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 import { supabaseAdmin } from '@/lib/supabase-server'
 
 interface Props {
