@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planSite, generateSection } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
-import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
+import type { SectionRow, PageRow, Theme } from '@/types/site'
 
 export const maxDuration = 300
 
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const theme = site.theme as ThemeConfig
+  const theme = site.theme as Theme
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
