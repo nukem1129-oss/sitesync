@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-import { planSite, generateSection } from '@/services/sectionGeneratorService'
+import { planPage, generateSection } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
 import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
 
@@ -26,7 +26,6 @@ export async function POST(request: Request) {
   }
 
   const { siteId, pageName, pageSlug, userId } = body
-
   if (!siteId || !pageName || !pageSlug || !userId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -77,29 +76,39 @@ export async function POST(request: Request) {
       }
 
       try {
+        // ── 1. Plan page-specific sections ─────────────────────
         send({ type: 'status', message: `Planning ${pageName} page…` })
 
-        const plan = await planSite(
-          site.name,
-          `Create a "${pageName}" page for ${site.name}. Plan sections appropriate for a ${pageName} page only — do not repeat the hero or homepage sections.`
-        )
+        const { data: homePageRow } = await supabaseAdmin
+          .from('pages')
+          .select('id')
+          .eq('site_id', siteId)
+          .eq('is_homepage', true)
+          .single()
 
-        const innerPageTypes = new Set(['about', 'services', 'features', 'team', 'faq', 'gallery', 'contact', 'pricing', 'testimonials'])
-        const rawSections = plan.pages[0]?.sections ?? []
-        let sections = rawSections.filter(s => innerPageTypes.has(s.type)).slice(0, 4)
-
-        if (sections.length < 2) {
-          sections = [
-            { type: 'about', label: pageName },
-            { type: 'contact', label: 'Get in Touch' },
-          ]
+        let businessDescription = site.name
+        if (homePageRow) {
+          const { data: homeSections } = await supabaseAdmin
+            .from('sections')
+            .select('content')
+            .eq('page_id', homePageRow.id)
+            .in('type', ['hero', 'about'])
+            .limit(2)
+          if (homeSections?.length) {
+            const about = homeSections.find(s => (s.content as Record<string,unknown>).body)
+            if (about) {
+              businessDescription = String((about.content as Record<string,unknown>).body ?? site.name)
+            }
+          }
         }
 
+        const sections = await planPage(site.name, businessDescription, pageName)
         const totalSections = sections.length
 
+        // ── 2. Create page record ───────────────────────────────
         const { data: existingPages } = await supabaseAdmin
           .from('pages')
-          .select('id, slug, title, nav_label, nav_order, is_homepage, published')
+          .select('id, slug, title, nav_label, nav_order, is_homepage, published, site_id')
           .eq('site_id', siteId)
           .order('nav_order', { ascending: true })
 
@@ -127,30 +136,47 @@ export async function POST(request: Request) {
           return
         }
 
+        // ── 3. Generate each section with page context ──────────
+        const pageContext = `${pageName} page for ${site.name}. Business: ${businessDescription}`
         const builtSections: SectionRow[] = []
 
         for (let i = 0; i < sections.length; i++) {
           const sectionPlan = sections[i]
-          send({ type: 'progress', message: `Building ${sectionPlan.label}…`, current: i + 1, total: totalSections })
+          send({
+            type: 'progress',
+            message: `Building ${sectionPlan.label}…`,
+            current: i + 1,
+            total: totalSections,
+          })
 
           const { content, sectionCss, sectionJs } = await generateSection(
-            sectionPlan.type, sectionPlan.label, site.name,
-            `This is the ${pageName} page for ${site.name}.`, theme
+            sectionPlan.type,
+            sectionPlan.label,
+            site.name,
+            pageContext,
+            theme
           )
 
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
             .insert({
-              page_id: newPageRow.id, site_id: siteId,
-              type: sectionPlan.type, order_index: i,
-              label: sectionPlan.label, content,
-              section_css: sectionCss, section_js: sectionJs, published: true,
+              page_id: newPageRow.id,
+              site_id: siteId,
+              type: sectionPlan.type,
+              order_index: i,
+              label: sectionPlan.label,
+              content,
+              section_css: sectionCss,
+              section_js: sectionJs,
+              published: true,
             })
-            .select().single()
+            .select()
+            .single()
 
           if (!secErr && sectionRow) builtSections.push(sectionRow as SectionRow)
         }
 
+        // ── 4. Fetch all pages for nav + render ─────────────────
         send({ type: 'status', message: 'Rendering page…' })
 
         const { data: allPageRows } = await supabaseAdmin
@@ -161,58 +187,60 @@ export async function POST(request: Request) {
 
         const allPages = (allPageRows ?? []) as PageRow[]
 
+        // ── 5. Cache the new page ───────────────────────────────
         const newPageHtml = renderPage({
-          page: newPageRow as PageRow, sections: builtSections,
-          theme, siteName: site.name, allPages, updateEmail: site.update_email,
+          page: newPageRow as PageRow,
+          sections: builtSections,
+          theme,
+          siteName: site.name,
+          allPages,
+          updateEmail: site.update_email,
         })
 
-        await supabaseAdmin.from('site_html_cache').upsert({
-          site_id: siteId, subdomain: `${site.subdomain}/${pageSlug}`,
-          html_content: newPageHtml, updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'subdomain' }
-)
+        await supabaseAdmin.from('site_html_cache').upsert(
+          {
+            site_id: siteId,
+            subdomain: `${site.subdomain}/${pageSlug}`,
+            html_content: newPageHtml,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'subdomain' }
+        )
 
-        send({ type: 'status', message: 'Updating homepage nav…' })
+        // ── 6. Re-cache all other pages (nav has changed) ───────
+        send({ type: 'status', message: 'Updating navigation on all pages…' })
 
-        const homePageRow = allPages.find((p) => p.is_homepage)
-        if (homePageRow) {
-          const { data: homeSections } = await supabaseAdmin
-            .from('sections').select('*')
-            .eq('page_id', homePageRow.id).eq('published', true)
-            .order('order_index', { ascending: true })
-
-          if (homeSections?.length) {
-            const homeHtml = renderPage({
-              page: homePageRow, sections: homeSections as SectionRow[],
-              theme, siteName: site.name, allPages, updateEmail: site.update_email,
-            })
-            await supabaseAdmin.from('site_html_cache').upsert({
-              site_id: siteId, subdomain: site.subdomain,
-              html_content: homeHtml, updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'subdomain' }
-)
-          }
-        }
-
-        for (const otherPage of allPages.filter(p => !p.is_homepage && p.slug !== pageSlug)) {
+        for (const otherPage of allPages.filter(p => p.slug !== pageSlug)) {
           const { data: otherSections } = await supabaseAdmin
-            .from('sections').select('*')
-            .eq('page_id', otherPage.id).eq('published', true)
+            .from('sections')
+            .select('*')
+            .eq('page_id', otherPage.id)
+            .eq('published', true)
             .order('order_index', { ascending: true })
 
           if (otherSections?.length) {
+            const cacheKey = otherPage.is_homepage
+              ? site.subdomain
+              : `${site.subdomain}/${otherPage.slug}`
+
             const otherHtml = renderPage({
-              page: otherPage, sections: otherSections as SectionRow[],
-              theme, siteName: site.name, allPages, updateEmail: site.update_email,
+              page: otherPage,
+              sections: otherSections as SectionRow[],
+              theme,
+              siteName: site.name,
+              allPages,
+              updateEmail: site.update_email,
             })
-            await supabaseAdmin.from('site_html_cache').upsert({
-              site_id: siteId, subdomain: `${site.subdomain}/${otherPage.slug}`,
-              html_content: otherHtml, updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'subdomain' }
-)
+
+            await supabaseAdmin.from('site_html_cache').upsert(
+              {
+                site_id: siteId,
+                subdomain: cacheKey,
+                html_content: otherHtml,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'subdomain' }
+            )
           }
         }
 
