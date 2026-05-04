@@ -22,6 +22,7 @@ export interface Theme {
   headingFont: string       // e.g. "'Poppins', sans-serif"
   borderRadius: string      // e.g. "8px"
 }
+export type ThemeConfig = Theme
 
 // ── Per-section content shapes ────────────────────────────────
 
@@ -43,7 +44,7 @@ export interface AboutContent {
 export interface Service {
   title: string
   description: string
-  icon?: string   // emoji or lucide icon name
+  icon?: string             // emoji or lucide icon name
   price?: string
 }
 
@@ -69,7 +70,7 @@ export interface Testimonial {
   author: string
   role?: string
   company?: string
-  rating?: number  // 1-5
+  rating?: number           // 1-5
 }
 
 export interface TestimonialsContent {
@@ -85,7 +86,7 @@ export interface FormField {
   label: string
   placeholder?: string
   required?: boolean
-  options?: string[]  // for select fields
+  options?: string[]        // for select fields
 }
 
 export interface ContactContent {
