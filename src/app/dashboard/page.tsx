@@ -36,10 +36,13 @@ type PageInfo = {
   published: boolean
 }
 
+type SuggestedPage = { name: string; slug: string }
+
 type PagePanelState = {
   open: boolean
   loading: boolean          // loading existing pages list
   pages: PageInfo[]
+  suggestions: SuggestedPage[]  // AI-suggested pages from initial generation
   adding: boolean           // add-page form visible
   addName: string           // text input value
   generating: boolean       // SSE in progress
@@ -66,6 +69,7 @@ const defaultPagePanel = (): PagePanelState => ({
   open: false,
   loading: false,
   pages: [],
+  suggestions: [],
   adding: false,
   addName: '',
   generating: false,
@@ -198,7 +202,14 @@ export default function DashboardPage() {
       .eq('site_id', siteId)
       .order('nav_order', { ascending: true })
 
-    updatePagePanel(siteId, { loading: false, pages: (data ?? []) as PageInfo[] })
+    // Load any AI-suggested pages from sessionStorage
+    let suggestions: SuggestedPage[] = []
+    try {
+      const stored = sessionStorage.getItem(`suggestedPages_${siteId}`)
+      if (stored) suggestions = JSON.parse(stored) as SuggestedPage[]
+    } catch { /* ignore */ }
+
+    updatePagePanel(siteId, { loading: false, pages: (data ?? []) as PageInfo[], suggestions })
   }
 
   async function handleAddPage(siteId: string) {
@@ -274,6 +285,8 @@ export default function DashboardPage() {
             } else if (event.type === 'done') {
               receivedDone = true
               const site = websites.find(s => s.id === siteId)
+              // Remove this slug from suggestions if it was generated that way
+              const currentSuggestions = pagePanels[siteId]?.suggestions ?? []
               updatePagePanel(siteId, {
                 generating: false,
                 adding: false,
@@ -281,6 +294,7 @@ export default function DashboardPage() {
                 genDoneSlug: event.slug,
                 genStatus: '',
                 genWarning: null,
+                suggestions: currentSuggestions.filter(s => s.slug !== event.slug),
                 // Append new page to local list
                 pages: [
                   ...(pagePanels[siteId]?.pages ?? []),
@@ -337,6 +351,20 @@ export default function DashboardPage() {
         genError: 'Connection error. Please try again.',
       })
     }
+  }
+
+  function handleAddSuggestion(siteId: string, suggestion: SuggestedPage) {
+    // Remove from suggestions list and pre-fill the add-page form
+    const panel = pagePanels[siteId]
+    updatePagePanel(siteId, {
+      suggestions: (panel?.suggestions ?? []).filter(s => s.slug !== suggestion.slug),
+      adding: true,
+      addName: suggestion.name,
+      genError: null,
+      genDoneSlug: null,
+    })
+    // Immediately trigger generation
+    setTimeout(() => handleAddPage(siteId), 50)
   }
 
   async function handleDeleteSite(siteId: string) {
@@ -703,6 +731,24 @@ export default function DashboardPage() {
                           {pagePanel.genWarning && !pagePanel.generating && (
                             <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg px-3 py-2 mb-3 text-xs text-yellow-400">
                               ⚠ {pagePanel.genWarning}
+                            </div>
+                          )}
+
+                          {/* AI suggested pages */}
+                          {pagePanel.suggestions.length > 0 && !pagePanel.generating && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 mb-2">AI suggested pages — click to generate:</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {pagePanel.suggestions.map(s => (
+                                  <button
+                                    key={s.slug}
+                                    onClick={() => handleAddSuggestion(site.id, s)}
+                                    className="text-xs px-2.5 py-1 bg-violet-900/40 hover:bg-violet-800/60 text-violet-300 border border-violet-800 rounded-full transition"
+                                  >
+                                    + {s.name}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           )}
 

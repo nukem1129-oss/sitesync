@@ -120,19 +120,18 @@ export async function POST(request: Request) {
             )
         }
 
-        // ── 8. Create all pages ───────────────────────────────
-        const pageInserts = plan.pages.map((p, i) => ({
-          site_id: siteId!,
-          slug: p.slug,
-          title: p.title,
-          nav_label: p.navLabel,
-          nav_order: i,
-          is_homepage: p.isHomepage,
-          published: true,
-        }))
+        // ── 8. Create homepage only — other pages added on demand ─
         const { data: pageRows, error: pageErr } = await supabaseAdmin
           .from('pages')
-          .insert(pageInserts)
+          .insert([{
+            site_id: siteId!,
+            slug: homePage.slug,
+            title: homePage.title,
+            nav_label: homePage.navLabel,
+            nav_order: 0,
+            is_homepage: true,
+            published: true,
+          }])
           .select()
         if (pageErr || !pageRows?.length) {
           console.error('Pages insert error:', pageErr)
@@ -140,6 +139,11 @@ export async function POST(request: Request) {
           controller.close()
           return
         }
+
+        // Collect suggested pages from the plan (non-homepage) to show in the dashboard
+        const suggestedPages = plan.pages
+          .filter(p => !p.isHomepage)
+          .map(p => ({ name: p.navLabel, slug: p.slug }))
 
         // ── 8. Generate sections for home page ───────────────
         const homePageRow = pageRows.find((p: PageRow) => p.is_homepage) as PageRow
@@ -226,7 +230,7 @@ export async function POST(request: Request) {
           .update({ status: 'active' })
           .eq('id', siteId!)
 
-        send({ type: 'done', subdomain, siteId: siteId! })
+        send({ type: 'done', subdomain, siteId: siteId!, suggestedPages })
       } catch (err) {
         console.error('Generate error:', err)
         // Clean up partial site

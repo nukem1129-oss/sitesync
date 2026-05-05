@@ -88,6 +88,13 @@ export default function NewWebsitePage() {
               setProgress(event.message ?? '')
             } else if (event.type === 'done') {
               setProgress('Website created! Redirecting…')
+              // Store suggested pages so dashboard can show quick-add buttons
+              if (event.suggestedPages?.length) {
+                sessionStorage.setItem(
+                  `suggestedPages_${event.siteId}`,
+                  JSON.stringify(event.suggestedPages)
+                )
+              }
               router.push('/dashboard')
               return
             } else if (event.type === 'error') {

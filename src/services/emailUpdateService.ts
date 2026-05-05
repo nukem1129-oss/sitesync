@@ -166,7 +166,19 @@ export async function processSiteUpdate(
   await sendMailgunEmail({
     to: sender,
     subject: `Re: ${subject}`,
-    text: `Your site "${site.name}" has been updated!\n\nPage updated: ${pageName}\nView: ${siteUrl}\n\nSiteSync`,
+    text: `Your site "${site.name}" has been updated!
+
+Page updated: ${pageName}
+View your site: ${siteUrl}
+
+---
+TIP: To update a specific page, just mention it in your email.
+  "On the Services page, please add..."
+  "Update the Team page — remove Dr. Smith"
+  "Change the hours in the Contact section"
+If you don't mention a page, updates go to the homepage by default.
+
+Powered by SiteSync`,
   })
 
   return { ok: true }
