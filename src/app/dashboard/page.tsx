@@ -47,6 +47,7 @@ type PagePanelState = {
   genCurrent: number
   genTotal: number
   genError: string | null
+  genWarning: string | null // non-fatal info (e.g. stream cut early)
   genDoneSlug: string | null
   deletingPageId: string | null  // page currently being deleted
 }
@@ -72,6 +73,7 @@ const defaultPagePanel = (): PagePanelState => ({
   genCurrent: 0,
   genTotal: 0,
   genError: null,
+  genWarning: null,
   genDoneSlug: null,
   deletingPageId: null,
 })
@@ -216,6 +218,7 @@ export default function DashboardPage() {
     updatePagePanel(siteId, {
       generating: true,
       genError: null,
+      genWarning: null,
       genDoneSlug: null,
       genStatus: 'Starting…',
       genCurrent: 0,
@@ -242,6 +245,7 @@ export default function DashboardPage() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let receivedDone = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -265,6 +269,7 @@ export default function DashboardPage() {
                 genTotal: event.total,
               })
             } else if (event.type === 'done') {
+              receivedDone = true
               const site = websites.find(s => s.id === siteId)
               updatePagePanel(siteId, {
                 generating: false,
@@ -272,6 +277,7 @@ export default function DashboardPage() {
                 addName: '',
                 genDoneSlug: event.slug,
                 genStatus: '',
+                genWarning: null,
                 // Append new page to local list
                 pages: [
                   ...(pagePanels[siteId]?.pages ?? []),
@@ -303,6 +309,23 @@ export default function DashboardPage() {
             // ignore malformed SSE line
           }
         }
+      }
+
+      // Stream ended without a "done" event — Vercel likely cut the connection.
+      // Generation may have actually completed server-side; surface a warning instead of freezing.
+      if (!receivedDone) {
+        // Refresh pages from DB in case the page was created before the cut
+        const { data: freshPages } = await supabase
+          .from('pages')
+          .select('id, slug, nav_label, is_homepage, published')
+          .eq('site_id', siteId)
+          .order('nav_order', { ascending: true })
+        updatePagePanel(siteId, {
+          generating: false,
+          genStatus: '',
+          genWarning: 'Generation may have completed — check the pages list above.',
+          pages: (freshPages ?? []) as PageInfo[],
+        })
       }
     } catch (err) {
       console.error('handleAddPage error:', err)
@@ -619,6 +642,13 @@ export default function DashboardPage() {
                                   />
                                 </div>
                               )}
+                            </div>
+                          )}
+
+                          {/* Stream-cut warning */}
+                          {pagePanel.genWarning && !pagePanel.generating && (
+                            <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg px-3 py-2 mb-3 text-xs text-yellow-400">
+                              ⚠ {pagePanel.genWarning}
                             </div>
                           )}
 

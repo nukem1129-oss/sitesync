@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -27,6 +27,7 @@ type PageWithSite = {
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type UploadState = 'idle' | 'uploading' | 'done' | 'error'
 
 // ── Field helpers ─────────────────────────────────────────────
 
@@ -46,6 +47,108 @@ function complexEntries(c: Record<string, unknown>): [string, unknown][] {
 
 function labelFor(key: string): string {
   return key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+/** Returns true if a field name suggests it holds an image URL */
+function isImageField(key: string): boolean {
+  const k = key.toLowerCase()
+  return (
+    k.includes('photo') || k.includes('image') || k.includes('logo') ||
+    k.includes('avatar') || k.includes('thumbnail') || k.includes('banner') ||
+    k.includes('background') ||
+    (k.includes('src') && !k.includes('description'))
+  )
+}
+
+// ── Image field input with upload ─────────────────────────────
+function ImageFieldInput({
+  fieldKey, value, siteId, userId,
+  onChange,
+}: {
+  fieldKey: string
+  value: string
+  siteId: string
+  userId: string
+  onChange: (v: string) => void
+}) {
+  const [uploadState, setUploadState] = useState<UploadState>('idle')
+  const [uploadError, setUploadError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadState('uploading')
+    setUploadError('')
+
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('siteId', siteId)
+    fd.append('userId', userId)
+
+    try {
+      const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) {
+        setUploadState('error')
+        setUploadError(data.error ?? 'Upload failed')
+        return
+      }
+      onChange(data.url)
+      setUploadState('done')
+      setTimeout(() => setUploadState('idle'), 3000)
+    } catch {
+      setUploadState('error')
+      setUploadError('Network error — please try again')
+    } finally {
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Preview */}
+      {value && (
+        <div className="relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={value}
+            alt={fieldKey}
+            className="h-24 w-auto max-w-xs rounded-lg object-cover border border-gray-700"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        </div>
+      )}
+      {/* URL text input */}
+      <input
+        type="url"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="https://... or upload below"
+        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 font-mono"
+      />
+      {/* Upload button */}
+      <div className="flex items-center gap-2">
+        <label className={`px-3 py-1.5 text-xs font-semibold rounded-lg cursor-pointer transition ${
+          uploadState === 'uploading'
+            ? 'bg-gray-700 text-gray-400 cursor-wait'
+            : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+        }`}>
+          {uploadState === 'uploading' ? 'Uploading…' : uploadState === 'done' ? '✓ Uploaded' : 'Upload image'}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/svg+xml"
+            onChange={handleFile}
+            disabled={uploadState === 'uploading'}
+            className="hidden"
+          />
+        </label>
+        <span className="text-xs text-gray-600">JPEG, PNG, WebP, GIF, SVG — max 8 MB</span>
+      </div>
+      {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
+    </div>
+  )
 }
 
 // ── Section editor ────────────────────────────────────────────
@@ -114,7 +217,15 @@ function SectionEditor({
         {simple.map(([key, value]) => (
           <div key={key}>
             <label className="block text-xs font-semibold text-gray-400 mb-1">{labelFor(key)}</label>
-            {key === 'body' || key === 'description' || String(value).length > 80 ? (
+            {isImageField(key) ? (
+              <ImageFieldInput
+                fieldKey={key}
+                value={String(value)}
+                siteId={section.site_id}
+                userId={userId}
+                onChange={v => setSimple(key, v)}
+              />
+            ) : key === 'body' || key === 'description' || String(value).length > 80 ? (
               <textarea
                 value={String(value)}
                 onChange={e => setSimple(key, e.target.value)}

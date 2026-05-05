@@ -10,6 +10,7 @@ export default function NewWebsitePage() {
   const [siteName, setSiteName] = useState('')
   const [subdomain, setSubdomain] = useState('')
   const [prompt, setPrompt] = useState('')
+  const [existingUrl, setExistingUrl] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -46,6 +47,7 @@ export default function NewWebsitePage() {
           prompt,
           userId: session.user.id,
           userEmail: session.user.email,
+          existingUrl: existingUrl.trim() || undefined,
         }),
       })
 
@@ -171,6 +173,24 @@ export default function NewWebsitePage() {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Lowercase letters, numbers, and hyphens only
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Existing website URL{' '}
+              <span className="text-gray-500 font-normal">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={existingUrl}
+              onChange={(e) => setExistingUrl(e.target.value)}
+              disabled={loading}
+              className="w-full px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition font-mono disabled:opacity-50"
+              placeholder="https://example.com"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              If provided, the AI will read their current site and use the real content (services, team, copy) instead of guessing.
             </p>
           </div>
 

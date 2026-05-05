@@ -15,8 +15,12 @@ export function esc(str: string): string {
 }
 
 export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue || c.backgroundOverlay || `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
-  return `<section style="background:${bg};padding:7rem 1.5rem 6rem;text-align:center;color:#fff;position:relative;overflow:hidden;">
+  const bgColor = String(c.backgroundValue || c.backgroundOverlay || `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
+  const bgImage = c.backgroundImage ? String(c.backgroundImage) : null
+  const bgStyle = bgImage
+    ? `background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url('${esc(bgImage)}') center/cover no-repeat`
+    : `background:${bgColor}`
+  return `<section style="${bgStyle};padding:7rem 1.5rem 6rem;text-align:center;color:#fff;position:relative;overflow:hidden;">
   <div style="position:absolute;top:-100px;right:-100px;width:500px;height:500px;border-radius:50%;background:rgba(255,255,255,0.05);pointer-events:none;"></div>
   <div style="position:absolute;bottom:-150px;left:-80px;width:380px;height:380px;border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
   <div style="position:relative;max-width:820px;margin:0 auto;">
@@ -40,10 +44,13 @@ export function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): st
 
 export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string {
   const stats = Array.isArray(c.stats) ? (c.stats as Array<Record<string, unknown>>) : []
+  const image = c.image ? String(c.image) : (c.logo ? String(c.logo) : null)
+
   if (stats.length) {
     return `<section style="padding:6rem 1.5rem;background:#fff;">
   <div class="ss-grid-2" style="max-width:1100px;margin:0 auto;">
     <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;">
+      ${image ? `<img src="${esc(image)}" alt="${esc(String(c.heading ?? 'About'))}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:2rem;" />` : ''}
       ${stats.map(s => `<div style="margin-bottom:2rem;">
         <div style="font-size:3rem;font-weight:800;line-height:1;">${esc(String(s.value ?? ''))}</div>
         <div style="opacity:0.8;margin-top:0.25rem;font-size:0.95rem;">${esc(String(s.label ?? ''))}</div>
@@ -58,6 +65,7 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
   }
   return `<section style="padding:6rem 1.5rem;background:#fff;">
   <div style="max-width:760px;margin:0 auto;text-align:center;">
+    ${image ? `<img src="${esc(image)}" alt="${esc(String(c.heading ?? 'About'))}" style="max-width:240px;max-height:160px;object-fit:contain;margin:0 auto 2.5rem;display:block;" />` : ''}
     <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;margin-bottom:1.75rem;">${esc(String(c.heading ?? 'About Us'))}</h2>
     ${c.body ? `<p style="color:#4b5563;font-size:1.1rem;line-height:1.9;">${esc(String(c.body))}</p>` : ''}
   </div>
@@ -119,8 +127,12 @@ export function renderTeam(c: Record<string, unknown>, t: ThemeConfig): string {
     <div class="ss-grid-4">
       ${members.map(m => {
         const name = String(m.name ?? '?')
+        const photo = m.photo ? String(m.photo) : null
+        const avatar = photo
+          ? `<img src="${esc(photo)}" alt="${esc(name)}" style="width:88px;height:88px;border-radius:50%;object-fit:cover;margin:0 auto 1.25rem;display:block;border:3px solid ${esc(t.primaryColor)};" />`
+          : `<div style="width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});margin:0 auto 1.25rem;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;font-weight:800;">${esc(name[0])}</div>`
         return `<div class="ss-card" style="text-align:center;padding:2.5rem 1.5rem;background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.06);">
-          <div style="width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});margin:0 auto 1.25rem;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;font-weight:800;">${esc(name[0])}</div>
+          ${avatar}
           <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.2rem;">${esc(name)}</h3>
           <p style="color:${esc(t.primaryColor)};font-weight:600;font-size:0.8rem;margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">${esc(String(m.role ?? ''))}</p>
           ${m.bio ? `<p style="color:#6b7280;font-size:0.88rem;line-height:1.65;">${esc(String(m.bio))}</p>` : ''}
@@ -139,20 +151,26 @@ export function renderTestimonials(c: Record<string, unknown>, t: ThemeConfig): 
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'What Our Clients Say'))}</h2>
     </div>
     <div class="ss-grid-3">
-      ${tms.map(tm => `<div class="ss-card" style="background:#fff;border-radius:12px;padding:2.25rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${esc(t.primaryColor)};position:relative;">
+      ${tms.map(tm => {
+        const authorName = String(tm.author ?? '?')
+        const photo = tm.photo ? String(tm.photo) : null
+        const authorAvatar = photo
+          ? `<img src="${esc(photo)}" alt="${esc(authorName)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
+          : `<div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.9rem;">${esc(authorName[0])}</div>`
+        return `<div class="ss-card" style="background:#fff;border-radius:12px;padding:2.25rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${esc(t.primaryColor)};position:relative;">
         <div style="font-size:5rem;line-height:1;color:${esc(t.primaryColor)};opacity:0.1;position:absolute;top:0.75rem;left:1.25rem;font-family:Georgia,serif;pointer-events:none;">&ldquo;</div>
         <div style="position:relative;">
           ${tm.rating ? `<div style="color:#f59e0b;margin-bottom:0.75rem;font-size:1.1rem;">${'★'.repeat(Number(tm.rating))}</div>` : ''}
           <p style="color:#374151;line-height:1.8;margin-bottom:1.5rem;font-size:0.97rem;">"${esc(String(tm.quote ?? ''))}"</p>
           <div style="display:flex;align-items:center;gap:0.75rem;">
-            <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.9rem;">${esc(String((tm.author ?? '?') as string)[0])}</div>
+            ${authorAvatar}
             <div>
-              <div style="font-weight:700;font-size:0.95rem;">${esc(String(tm.author ?? ''))}</div>
+              <div style="font-weight:700;font-size:0.95rem;">${esc(authorName)}</div>
               ${(tm.role || tm.company) ? `<div style="font-size:0.8rem;color:#9ca3af;">${[tm.role, tm.company].filter(Boolean).map(x => esc(String(x))).join(' · ')}</div>` : ''}
             </div>
           </div>
         </div>
-      </div>`).join('')}
+      </div>`}).join('')}
     </div>
   </div>
 </section>`
@@ -241,13 +259,19 @@ export function renderGallery(c: Record<string, unknown>, t: ThemeConfig): strin
       ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;">${esc(String(c.subheading))}</p>` : ''}
     </div>
     <div class="ss-grid-3">
-      ${items.map(item => `<div class="ss-card" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-        <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});height:180px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700;">${esc(String(item.title ?? '')[0] ?? '')}</div>
+      ${items.map(item => {
+        const img = item.image ? String(item.image) : null
+        const placeholder = `<div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});height:200px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700;">${esc(String(item.title ?? '')[0] ?? '')}</div>`
+        const media = img
+          ? `<img src="${esc(img)}" alt="${esc(String(item.title ?? ''))}" style="width:100%;height:200px;object-fit:cover;display:block;" />`
+          : placeholder
+        return `<div class="ss-card" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        ${media}
         ${item.title || item.description ? `<div style="padding:1.5rem;">
           ${item.title ? `<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">${esc(String(item.title))}</h3>` : ''}
           ${item.description ? `<p style="color:#4b5563;font-size:0.95rem;line-height:1.7;">${esc(String(item.description))}</p>` : ''}
         </div>` : ''}
-      </div>`).join('')}
+      </div>`}).join('')}
     </div>
   </div>
 </section>`

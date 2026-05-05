@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planSite, generateSection } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
+import { scrapeSite } from '@/lib/siteScraper'
 import type { SectionRow, PageRow } from '@/types/site'
 
 export const maxDuration = 300
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     prompt?: string
     userId?: string
     userEmail?: string
+    existingUrl?: string
   }
   try {
     body = await request.json()
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { siteName, subdomain, prompt, userId, userEmail } = body
+  const { siteName, subdomain, prompt, userId, userEmail, existingUrl } = body
   if (!siteName || !subdomain || !prompt || !userId || !userEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -62,15 +64,28 @@ export async function POST(request: Request) {
 
       let siteId: string | null = null
       try {
-        // ── 4. Plan the site (fast Haiku call) ───────────────
+        // ── 4. Scrape existing site if URL provided ───────────
+        let existingContent = ''
+        if (existingUrl?.trim()) {
+          send({ type: 'status', message: `Reading existing site at ${new URL(existingUrl.trim().startsWith('http') ? existingUrl.trim() : `https://${existingUrl.trim()}`).hostname}…` })
+          const scrapeResult = await scrapeSite(existingUrl)
+          if (scrapeResult.success) {
+            existingContent = scrapeResult.content
+            send({ type: 'status', message: `Read ${scrapeResult.pagesRead} pages — using real content…` })
+          } else {
+            send({ type: 'status', message: 'Could not read existing site — generating from description instead…' })
+          }
+        }
+
+        // ── 5. Plan the site (fast Haiku call) ───────────────
         send({ type: 'status', message: 'Planning your site…' })
-        const plan = await planSite(siteName!, prompt!)
+        const plan = await planSite(siteName!, prompt!, existingContent)
         const { theme } = plan
         const homePage = plan.pages.find(p => p.isHomepage) ?? plan.pages[0]
 
         send({ type: 'status', message: 'Creating site record…' })
 
-        // ── 5. Create site record (status: building) ─────────
+        // ── 6. Create site record (status: building) ─────────
         const { data: siteRow, error: siteErr } = await supabaseAdmin
           .from('sites')
           .insert({
@@ -93,7 +108,7 @@ export async function POST(request: Request) {
         }
         siteId = siteRow.id
 
-        // ── 6. Create all pages ───────────────────────────────
+        // ── 7. Create all pages ───────────────────────────────
         const pageInserts = plan.pages.map((p, i) => ({
           site_id: siteId!,
           slug: p.slug,
@@ -114,7 +129,7 @@ export async function POST(request: Request) {
           return
         }
 
-        // ── 7. Generate sections for home page ───────────────
+        // ── 8. Generate sections for home page ───────────────
         const homePageRow = pageRows.find((p: PageRow) => p.is_homepage) as PageRow
         const totalSections = homePage.sections.length
         const builtSections: SectionRow[] = []
@@ -132,7 +147,9 @@ export async function POST(request: Request) {
             sectionPlan.label,
             siteName!,
             prompt!,
-            theme
+            theme,
+            '',
+            existingContent
           )
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
@@ -156,7 +173,7 @@ export async function POST(request: Request) {
           builtSections.push(sectionRow as SectionRow)
         }
 
-        // ── 8. Render full HTML from sections ─────────────────
+        // ── 9. Render full HTML from sections ─────────────────
         send({ type: 'status', message: 'Rendering site…' })
         const html = renderPage({
           page: homePageRow,
@@ -168,7 +185,7 @@ export async function POST(request: Request) {
           basePath,
         })
 
-        // ── 9. Cache rendered HTML for fast serving ───────────
+        // ── 10. Cache rendered HTML for fast serving ──────────
         const { error: cacheErr } = await supabaseAdmin
           .from('site_html_cache')
           .upsert({
@@ -181,7 +198,7 @@ export async function POST(request: Request) {
           console.error('HTML cache write error:', cacheErr)
         }
 
-        // ── 10. Save initial version snapshot ─────────────────
+        // ── 11. Save initial version snapshot ────────────────
         await supabaseAdmin.from('versions').insert({
           site_id: siteId!,
           page_id: homePageRow.id,
@@ -191,7 +208,7 @@ export async function POST(request: Request) {
           update_instructions: prompt,
         })
 
-        // ── 11. Activate site ──────────────────────────────────
+        // ── 12. Activate site ────────────────────────────────
         await supabaseAdmin
           .from('sites')
           .update({ status: 'active' })
