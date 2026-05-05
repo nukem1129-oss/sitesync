@@ -11,6 +11,7 @@ interface RenderPageArgs {
   siteName: string
   allPages: PageRow[]
   updateEmail: string
+  basePath?: string   // e.g. '/sites/tc-risk' — prefixed on all nav hrefs
 }
 
 // ── HTML escaping ─────────────────────────────────────────────
@@ -264,7 +265,7 @@ function renderPricing(c: Record<string, unknown>, t: ThemeConfig): string {
         const featured = !!tier.featured
         const features = Array.isArray(tier.features) ? (tier.features as string[]) : []
         return `<div style="background:${featured ? esc(t.primaryColor) : '#fff'};color:${featured ? '#fff' : '#222'};border-radius:12px;padding:2.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.1);${featured ? 'transform:scale(1.03);' : ''}">
-          ${tier.badge ? `<div style="display:inline-block;background:${featured ? 'rgba(255,255,255,0.2)' : esc(t.primaryColor)};color:${featured ? '#fff' : '#fff'};padding:0.2rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:700;margin-bottom:1rem;">${esc(String(tier.badge))}</div>` : ''}
+          ${tier.badge ? `<div style="display:inline-block;background:${featured ? 'rgba(255,255,255,0.2)' : esc(t.primaryColor)};color:#fff;padding:0.2rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:700;margin-bottom:1rem;">${esc(String(tier.badge))}</div>` : ''}
           <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">${esc(String(tier.name ?? ''))}</h3>
           <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;">${esc(String(tier.price ?? ''))}</div>
           ${tier.period ? `<div style="opacity:0.75;font-size:0.9rem;margin-bottom:1.5rem;">${esc(String(tier.period))}</div>` : '<div style="margin-bottom:1.5rem;"></div>'}
@@ -284,9 +285,6 @@ function renderPricing(c: Record<string, unknown>, t: ThemeConfig): string {
 }
 
 // ── Section dispatcher ────────────────────────────────────────
-// Contact always uses JSON renderer (avoids legacy [object Object] bug).
-// New section types (page-header, features, process, faq, pricing) are JSON-only.
-// Older types fall back to legacy content.html if present.
 function renderSection(s: SectionRow, theme: ThemeConfig): string {
   const c = s.content as Record<string, unknown>
   const legacyHtml = typeof (c as { html?: string }).html === 'string'
@@ -318,18 +316,22 @@ export function renderPage({
   siteName,
   allPages,
   updateEmail,
+  basePath = '',
 }: RenderPageArgs): string {
   const primaryColor   = theme?.primaryColor   || '#6c63ff'
   const secondaryColor = theme?.secondaryColor || '#4a47a3'
   const fontFamily     = theme?.fontFamily     || 'Inter, sans-serif'
 
+  // Build nav hrefs — use basePath for absolute routes when available
   const navLinks = allPages
     .filter((p) => p.published)
     .sort((a, b) => a.nav_order - b.nav_order)
-    .map(
-      (p) =>
-        `<a href="${p.is_homepage ? './' : p.slug}" style="text-decoration:none;color:#333;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
-    )
+    .map((p) => {
+      const href = basePath
+        ? (p.is_homepage ? `${basePath}/` : `${basePath}/${p.slug}`)
+        : (p.is_homepage ? './'             : p.slug)
+      return `<a href="${href}" style="text-decoration:none;color:#333;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
+    })
     .join('')
 
   const sectionStyles = sections
@@ -385,7 +387,7 @@ export function renderPage({
 <body>
   <!-- Navigation -->
   <nav style="position:sticky;top:0;z-index:999;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-    <a href="./" style="font-weight:800;font-size:1.25rem;text-decoration:none;color:${esc(primaryColor)};">${esc(siteName)}</a>
+    <a href="${basePath ? basePath + '/' : './'}" style="font-weight:800;font-size:1.25rem;text-decoration:none;color:${esc(primaryColor)};">${esc(siteName)}</a>
     <div style="display:flex;gap:2rem;align-items:center;">${navLinks}</div>
   </nav>
 
