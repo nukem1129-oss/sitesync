@@ -108,7 +108,19 @@ export async function POST(request: Request) {
         }
         siteId = siteRow.id
 
-        // ── 7. Create all pages ───────────────────────────────
+        // ── 7. Persist scraped content for future page generations ─
+        if (existingContent) {
+          const enc = new TextEncoder()
+          await supabaseAdmin.storage
+            .from('site-assets')
+            .upload(
+              `${siteId}/_scrape.json`,
+              enc.encode(JSON.stringify({ content: existingContent })),
+              { contentType: 'application/json', upsert: true }
+            )
+        }
+
+        // ── 8. Create all pages ───────────────────────────────
         const pageInserts = plan.pages.map((p, i) => ({
           site_id: siteId!,
           slug: p.slug,

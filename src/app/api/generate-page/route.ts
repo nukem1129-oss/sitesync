@@ -113,7 +113,22 @@ export async function POST(request: Request) {
 
         const siteStyle = (site.theme as ThemeConfig).style ?? 'modern'
 
-        // ── 2. AI plans sections + writes rationale ────────────
+        // ── 2. Load stored scrape content if available ────────
+        let existingContent = ''
+        try {
+          const { data: scrapeFile } = await supabaseAdmin.storage
+            .from('site-assets')
+            .download(`${siteId}/_scrape.json`)
+          if (scrapeFile) {
+            const text = await scrapeFile.text()
+            const parsed = JSON.parse(text) as { content?: string }
+            existingContent = parsed.content ?? ''
+          }
+        } catch {
+          // No scrape stored — generate normally
+        }
+
+        // ── 3. AI plans sections for this specific page ───────
         const { sections, rationale } = await planPage(
           pageName,
           site.name,
@@ -174,7 +189,9 @@ export async function POST(request: Request) {
             sectionPlan.label,
             site.name,
             pageContext,
-            theme
+            theme,
+            '',
+            existingContent
           )
 
           const { data: sectionRow, error: secErr } = await supabaseAdmin
