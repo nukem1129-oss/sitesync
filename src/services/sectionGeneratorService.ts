@@ -25,7 +25,7 @@ Return ONLY valid JSON matching the exact schema requested. No markdown fences, 
 // ── Site planner (homepage) ───────────────────────────────────────
 export async function planSite(siteName: string, prompt: string, existingContent = ''): Promise<SitePlan> {
   const contentBlock = existingContent
-    ? `\n\nEXISTING WEBSITE CONTENT (use this real information instead of guessing):\n${existingContent.slice(0, 3000)}`
+    ? `\n\nREAL CONTENT FROM CLIENT'S EXISTING WEBSITE — use brand colors, tone, and page structure that match this:\n${existingContent.slice(0, 2000)}\n`
     : ''
 
   const message = await anthropic.messages.create({
@@ -55,7 +55,7 @@ export async function planSite(siteName: string, prompt: string, existingContent
 Section types: hero, about, services, team, testimonials, contact
 Rules: always include hero + contact on home page. Use Google Fonts matching brand personality.
 borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal`,
-    messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}${contentBlock}\n\nReturn site plan JSON.` }]
+    messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}${contentBlock}\nReturn site plan JSON.` }]
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
@@ -374,16 +374,22 @@ export async function generateSection(
   homepageSummary = '',
   existingContent = '',
 ): Promise<{ content: Record<string, unknown>; sectionCss: string | null; sectionJs: string | null }> {
-  const prompt = sectionPrompt(type, siteName, pageContext, theme, homepageSummary)
-  const contentBlock = existingContent
-    ? `\n\nREAL BUSINESS CONTENT FROM THEIR EXISTING WEBSITE (extract and use this real information — names, services, prices, certifications — instead of making things up):\n${existingContent.slice(0, 3000)}`
-    : ''
+  const rawPrompt = sectionPrompt(type, siteName, pageContext, theme, homepageSummary)
+
+  // Inject real content BEFORE the "Return ONLY valid JSON:" line so the AI
+  // reads the real data first, then follows the JSON schema instruction.
+  const finalPrompt = existingContent
+    ? rawPrompt.replace(
+        'Return ONLY valid JSON:',
+        `REAL BUSINESS CONTENT FROM CLIENT'S EXISTING WEBSITE — extract and use real names, services, certifications, prices, team members, and copy from this. Do NOT invent details that contradict this content:\n\n${existingContent.slice(0, 3000)}\n\nReturn ONLY valid JSON:`
+      )
+    : rawPrompt
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: COPY_SYSTEM,
-    messages: [{ role: 'user', content: prompt + contentBlock }]
+    messages: [{ role: 'user', content: finalPrompt }]
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
