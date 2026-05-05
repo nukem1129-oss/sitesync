@@ -39,6 +39,7 @@ export async function planSite(siteName: string, prompt: string, existingContent
     "fontFamily": "'Font Name', sans-serif", "headingFont": "'Font Name', sans-serif",
     "borderRadius": "Npx"
   },
+  "heroImageQuery": "3-5 comma-separated visual keywords for a stock photo search that would produce a beautiful, relevant hero background for this business (e.g. 'veterinary clinic animals pets' or 'landscaping garden lawn outdoor' or 'restaurant kitchen cooking food' or 'construction workers building site' or 'law office professional attorney')",
   "pages": [
     {
       "slug": "home", "title": "Home", "navLabel": "Home", "isHomepage": true,
@@ -54,12 +55,17 @@ export async function planSite(siteName: string, prompt: string, existingContent
   ]
 }
 
-Section types for homepage: hero, about, services, team, testimonials, contact
+Available section types for homepage: hero, about, services, features, team, testimonials, process, faq, pricing, gallery, contact
+
 Rules:
-- Always include hero + contact on home page. 4-6 sections total on homepage.
-- Include 2-4 additional pages beyond homepage that suit this business (e.g. services, about, team, contact, gallery, faq). Non-homepage pages have empty sections arrays.
+- Always start with hero and end with contact.
+- Pick 4-6 sections BETWEEN hero and contact that genuinely fit this specific business — think like a designer, not a template.
+- NOT every site needs about+services+testimonials. A restaurant might do: hero → gallery → menu/pricing → process (how to book) → contact. A law firm might do: hero → features (practice areas) → process (how we work) → team → testimonials → contact. A gym: hero → services → pricing → testimonials → faq → contact.
+- Vary the selection based on what would actually help a potential customer make a decision for THIS type of business.
+- Include 2-4 additional pages beyond homepage. Non-homepage pages have empty sections arrays.
 - Use Google Fonts matching brand personality.
-- borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal`,
+- borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal
+- heroImageQuery: pick vivid, photogenic keywords — prioritize what the BUSINESS LOOKS LIKE in real life, not abstract concepts`,
     messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}${contentBlock}\nReturn site plan JSON.` }]
   })
 

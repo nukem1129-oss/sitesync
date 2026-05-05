@@ -11,6 +11,38 @@ import type { SectionRow, PageRow } from '@/types/site'
 
 export const maxDuration = 300
 
+// ── Fetch a hero background image from Pexels (or Unsplash fallback) ─
+async function fetchHeroImage(query: string): Promise<string | null> {
+  if (!query) return null
+
+  // Primary: Pexels API (add PEXELS_API_KEY to Vercel env for best results)
+  const pexelsKey = process.env.PEXELS_API_KEY
+  if (pexelsKey) {
+    try {
+      const res = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=8&orientation=landscape&size=large`,
+        { headers: { Authorization: pexelsKey }, signal: AbortSignal.timeout(6000) }
+      )
+      if (res.ok) {
+        const data = await res.json() as { photos: Array<{ src: { large2x: string } }> }
+        if (data.photos?.length) {
+          const pick = data.photos[Math.floor(Math.random() * Math.min(data.photos.length, 5))]
+          return pick.src.large2x
+        }
+      }
+    } catch { /* fall through to Unsplash */ }
+  }
+
+  // Fallback: Unsplash Source — resolve redirect to get a stable URL
+  try {
+    const url = `https://source.unsplash.com/1600x900/?${encodeURIComponent(query)}`
+    const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(6000) })
+    if (res.ok && res.url && res.url !== url) return res.url
+  } catch { /* ignore */ }
+
+  return null
+}
+
 export async function POST(request: Request) {
   // ── 1. Parse & validate ───────────────────────────────────
   let body: {
@@ -90,6 +122,14 @@ export async function POST(request: Request) {
         const plan = await planSite(siteName!, prompt!, existingContent)
         const { theme } = plan
         const homePage = plan.pages.find(p => p.isHomepage) ?? plan.pages[0]
+
+        // Fetch a hero background photo in parallel with site record creation
+        const heroImageUrl = plan.heroImageQuery
+          ? await fetchHeroImage(plan.heroImageQuery)
+          : null
+        if (heroImageUrl) {
+          send({ type: 'status', message: 'Found a great hero photo…' })
+        }
 
         send({ type: 'status', message: 'Creating site record…' })
 
@@ -185,6 +225,10 @@ export async function POST(request: Request) {
             '',
             existingContent
           )
+          // Inject real hero photo if we have one
+          if (sectionPlan.type === 'hero' && heroImageUrl) {
+            content.backgroundImage = heroImageUrl
+          }
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
             .insert({

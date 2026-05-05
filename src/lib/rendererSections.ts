@@ -4,6 +4,14 @@
 // ============================================================
 import type { ThemeConfig } from '@/types/site'
 
+// Convert a hex color to rgba with given alpha — used for themed section backgrounds
+export function hexToRgba(hex: string, alpha: number): string {
+  const full = hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i, (_, r, g, b) => r + r + g + g + b + b)
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(full.replace('#', ''))
+  if (!result) return `rgba(99,102,241,${alpha})`
+  return `rgba(${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)},${alpha})`
+}
+
 export function esc(str: string): string {
   return str
     .replace(/\s*—\s*/g, ' ')   // em dash (—) → space: used as sentence separator, never wanted
@@ -74,7 +82,7 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
 
 export function renderServices(c: Record<string, unknown>, t: ThemeConfig): string {
   const svcs = Array.isArray(c.services) ? (c.services as Array<Record<string, unknown>>) : []
-  return `<section style="padding:6rem 1.5rem;background:#f8f9fc;">
+  return `<section style="padding:6rem 1.5rem;background:${hexToRgba(t.primaryColor, 0.05)};">
   <div style="max-width:1100px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:3.5rem;">
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Our Services'))}</h2>
@@ -145,7 +153,7 @@ export function renderTeam(c: Record<string, unknown>, t: ThemeConfig): string {
 
 export function renderTestimonials(c: Record<string, unknown>, t: ThemeConfig): string {
   const tms = Array.isArray(c.testimonials) ? (c.testimonials as Array<Record<string, unknown>>) : []
-  return `<section style="padding:6rem 1.5rem;background:#f8f9fc;">
+  return `<section style="padding:6rem 1.5rem;background:${hexToRgba(t.primaryColor, 0.04)};">
   <div style="max-width:1100px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:3.5rem;">
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'What Our Clients Say'))}</h2>
@@ -178,7 +186,7 @@ export function renderTestimonials(c: Record<string, unknown>, t: ThemeConfig): 
 
 export function renderProcess(c: Record<string, unknown>, t: ThemeConfig): string {
   const steps = Array.isArray(c.steps) ? (c.steps as Array<Record<string, unknown>>) : []
-  return `<section style="padding:6rem 1.5rem;background:#f8f9fc;">
+  return `<section style="padding:6rem 1.5rem;background:${hexToRgba(t.primaryColor, 0.05)};">
   <div style="max-width:860px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:3.5rem;">
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'How It Works'))}</h2>
@@ -220,7 +228,7 @@ export function renderFAQ(c: Record<string, unknown>): string {
 
 export function renderPricing(c: Record<string, unknown>, t: ThemeConfig): string {
   const tiers = Array.isArray(c.tiers) ? (c.tiers as Array<Record<string, unknown>>) : []
-  return `<section style="padding:6rem 1.5rem;background:#f8f9fc;">
+  return `<section style="padding:6rem 1.5rem;background:${hexToRgba(t.primaryColor, 0.05)};">
   <div style="max-width:1100px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:3.5rem;">
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Pricing'))}</h2>

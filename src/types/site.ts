@@ -231,6 +231,7 @@ export interface SiteRow {
 
 export interface SitePlan {
   theme: Theme
+  heroImageQuery?: string   // Pexels/Unsplash search keywords for the hero background photo
   pages: Array<{
     slug: string
     title: string
