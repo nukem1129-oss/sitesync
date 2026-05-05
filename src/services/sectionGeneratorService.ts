@@ -117,7 +117,7 @@ Rules:
 - Choose 4-6 sections total that genuinely match what a visitor to a "${pageTitle}" page expects to find
 - Think creatively — "My Pets" might use gallery + testimonials as owner stories; "Our Process" might use process + faq; "The Team" might use team + about
 - Labels must be specific and human, not generic (e.g. "Meet Our Animal Patients" not "Gallery")
-- Valid section types: page-header, about, services, features, team, testimonials, faq, pricing, contact, gallery, process`
+- Valid section types: page-header, about, services, team, testimonials, faq, pricing, contact, gallery, process`
     }]
   })
 
