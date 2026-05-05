@@ -2,6 +2,7 @@
 // SiteSync v2 — /api/generate-page
 // Adds a new page to an existing site, streaming progress via SSE
 // ============================================================
+
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planPage, generateSection } from '@/services/sectionGeneratorService'
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
     pageSlug?: string
     userId?: string
   }
+
   try {
     body = await request.json()
   } catch {
@@ -24,9 +26,11 @@ export async function POST(request: Request) {
   }
 
   const { siteId, pageName, pageSlug, userId } = body
+
   if (!siteId || !pageName || !pageSlug || !userId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
+
   if (!/^[a-z0-9-]{2,50}$/.test(pageSlug)) {
     return NextResponse.json(
       { error: 'Slug must be 2–50 lowercase letters, numbers, or hyphens' },
@@ -40,9 +44,11 @@ export async function POST(request: Request) {
     .eq('id', siteId)
     .eq('owner_id', userId)
     .single()
+
   if (siteErr || !site) {
     return NextResponse.json({ error: 'Site not found or access denied' }, { status: 403 })
   }
+
   if (site.status !== 'active') {
     return NextResponse.json({ error: 'Site is not yet active' }, { status: 409 })
   }
@@ -53,6 +59,7 @@ export async function POST(request: Request) {
     .eq('site_id', siteId)
     .eq('slug', pageSlug)
     .single()
+
   if (existingPage) {
     return NextResponse.json(
       { error: `A page with slug "${pageSlug}" already exists on this site` },
@@ -71,9 +78,10 @@ export async function POST(request: Request) {
       }
 
       try {
-        // ── 1. Plan page-specific sections ─────────────────────
+        // ── 1. Gather context for the smart page planner ──────
         send({ type: 'status', message: `Planning ${pageName} page…` })
 
+        // Get homepage section types so the planner knows what's already covered
         const { data: homePageRow } = await supabaseAdmin
           .from('pages')
           .select('id')
@@ -81,26 +89,44 @@ export async function POST(request: Request) {
           .eq('is_homepage', true)
           .single()
 
-        let businessDescription = site.name
+        let homepageSectionTypes: string[] = []
         if (homePageRow) {
           const { data: homeSections } = await supabaseAdmin
             .from('sections')
-            .select('content')
+            .select('type')
             .eq('page_id', homePageRow.id)
-            .in('type', ['hero', 'about'])
-            .limit(2)
-          if (homeSections?.length) {
-            const about = homeSections.find(s => (s.content as Record<string,unknown>).body)
-            if (about) {
-              businessDescription = String((about.content as Record<string,unknown>).body ?? site.name)
-            }
-          }
+            .eq('published', true)
+            .order('order_index', { ascending: true })
+          homepageSectionTypes = (homeSections ?? []).map(s => s.type as string)
         }
 
-        const sections = await planPage(site.name, businessDescription, pageName)
-        const totalSections = sections.length
+        // Get existing page titles so the planner knows what's already on the site
+        const { data: existingPagesForPlan } = await supabaseAdmin
+          .from('pages')
+          .select('nav_label, is_homepage')
+          .eq('site_id', siteId)
+          .eq('published', true)
 
-        // ── 2. Create page record ───────────────────────────────
+        const existingPageTitles = (existingPagesForPlan ?? [])
+          .filter(p => !p.is_homepage)
+          .map(p => p.nav_label as string)
+
+        const siteStyle = (site.theme as ThemeConfig).style ?? 'modern'
+
+        // ── 2. AI plans sections + writes rationale ────────────
+        const { sections, rationale } = await planPage(
+          pageName,
+          site.name,
+          siteStyle,
+          existingPageTitles,
+          homepageSectionTypes,
+        )
+
+        const totalSections = sections.length
+        // Rationale becomes the page context — threads through every generateSection() call
+        const pageContext = rationale
+
+        // ── 3. Create page record ──────────────────────────────
         const { data: existingPages } = await supabaseAdmin
           .from('pages')
           .select('id, slug, title, nav_label, nav_order, is_homepage, published, site_id')
@@ -131,8 +157,7 @@ export async function POST(request: Request) {
           return
         }
 
-        // ── 3. Generate each section with page context ──────────
-        const pageContext = `${pageName} page for ${site.name}. Business: ${businessDescription}`
+        // ── 4. Generate each section with rationale as context ─
         const builtSections: SectionRow[] = []
 
         for (let i = 0; i < sections.length; i++) {
@@ -143,6 +168,7 @@ export async function POST(request: Request) {
             current: i + 1,
             total: totalSections,
           })
+
           const { content, sectionCss, sectionJs } = await generateSection(
             sectionPlan.type,
             sectionPlan.label,
@@ -150,6 +176,7 @@ export async function POST(request: Request) {
             pageContext,
             theme
           )
+
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
             .insert({
@@ -165,11 +192,13 @@ export async function POST(request: Request) {
             })
             .select()
             .single()
+
           if (!secErr && sectionRow) builtSections.push(sectionRow as SectionRow)
         }
 
-        // ── 4. Fetch all pages for nav + render ─────────────────
+        // ── 5. Fetch all pages for nav + render ────────────────
         send({ type: 'status', message: 'Rendering page…' })
+
         const { data: allPageRows } = await supabaseAdmin
           .from('pages')
           .select('id, slug, title, nav_label, nav_order, is_homepage, published, site_id')
@@ -178,7 +207,7 @@ export async function POST(request: Request) {
 
         const allPages = (allPageRows ?? []) as PageRow[]
 
-        // ── 5. Cache the new page ───────────────────────────────
+        // ── 6. Cache the new page ──────────────────────────────
         const newPageHtml = renderPage({
           page: newPageRow as PageRow,
           sections: builtSections,
@@ -188,6 +217,7 @@ export async function POST(request: Request) {
           updateEmail: site.update_email,
           basePath,
         })
+
         await supabaseAdmin.from('site_html_cache').upsert(
           {
             site_id: siteId,
@@ -198,8 +228,9 @@ export async function POST(request: Request) {
           { onConflict: 'subdomain' }
         )
 
-        // ── 6. Re-cache all other pages (nav has changed) ───────
+        // ── 7. Re-cache all other pages (nav has a new entry) ──
         send({ type: 'status', message: 'Updating navigation on all pages…' })
+
         for (const otherPage of allPages.filter(p => p.slug !== pageSlug)) {
           const { data: otherSections } = await supabaseAdmin
             .from('sections')
@@ -222,6 +253,7 @@ export async function POST(request: Request) {
               updateEmail: site.update_email,
               basePath,
             })
+
             await supabaseAdmin.from('site_html_cache').upsert(
               {
                 site_id: siteId,
@@ -239,6 +271,7 @@ export async function POST(request: Request) {
         console.error('Generate-page error:', err)
         send({ type: 'error', message: 'Page generation failed. Please try again.' })
       }
+
       controller.close()
     },
   })
