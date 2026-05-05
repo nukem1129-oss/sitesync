@@ -212,29 +212,47 @@ Return ONLY valid JSON:`
 
     about: `${base}
 Go DEEP — write about THIS specific aspect of the business described in the page context.
+
+First, choose a layout variant that best fits this business and its story:
+- "split-stats": Best when the business has strong measurable results (years in business, clients served, locations, certifications). Renders as a two-column with a bold stats panel.
+- "mission-first": Best for purpose-driven businesses, nonprofits, founder-led brands, or businesses whose WHY matters more than their numbers. Renders as a large mission statement with 3 core values below.
+- "narrative": Best when the origin story or founder journey is compelling and differentiating. Renders as a full-width storytelling layout with immersive body text.
+
+Return this shape exactly (include only the fields relevant to your chosen layout):
 {
-  "heading": "Specific heading relevant to this page context (not just 'About Us')",
-  "body": "4-5 sentence paragraph with specific details: company history, approach, expertise, and what makes them different. Include founding story or key milestone. Real and specific, not generic.",
-  "mission": "1-2 sentence mission or philosophy statement",
+  "layout": "split-stats" | "mission-first" | "narrative",
+  "heading": "Specific heading — not just 'About Us'",
+  "body": "4-5 sentence paragraph: company history, founding story or key milestone, approach, what makes them different. Real and specific.",
+  "mission": "1-2 sentence mission or core philosophy (required for mission-first, optional for others)",
   "stats": [
     { "value": "X+", "label": "Specific meaningful metric" },
-    { "value": "X%", "label": "Specific outcome metric" },
+    { "value": "X", "label": "Specific outcome metric" },
     { "value": "X+", "label": "Another meaningful metric" }
+  ],
+  "values": [
+    { "title": "Value or Pillar Name", "description": "2 sentences on what this means in practice" }
   ]
-}`,
+}
+Note: stats required for split-stats. values (3 items) required for mission-first. narrative only needs heading + body.`,
 
     services: `${base}
-Each service needs DEEP detail — this is a services page, not a homepage overview. Cover 4-6 services.
+Each service needs DEEP detail. Cover 4-6 services.
+
+First, choose a layout variant that best fits this business:
+- "card-grid": Best for businesses with 4-6 distinct, roughly-equal services. Renders as a clean grid of cards.
+- "icon-rows": Best for complex B2B or professional services where the process/detail matters. Renders as rows with a large title, full description, and what's included.
+- "showcase": Best for premium businesses with 2-4 signature offerings they want to feature prominently. Renders as large, bold feature blocks alternating left/right.
+
+Return this shape:
 {
-  "heading": "Services heading specific to this page context",
-  "subheading": "1-2 sentences about your overall approach or what clients get",
-  "intro": "Full introductory paragraph (3-4 sentences) about these services, the problems they solve, and who they're for",
+  "layout": "card-grid" | "icon-rows" | "showcase",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your overall approach",
   "services": [
     {
       "title": "Specific Service Name",
-      "description": "3-4 sentence detailed description. Explain the process, what's involved, outcomes clients get, and why this service matters. Be specific to the industry.",
+      "description": "3-4 sentence detailed description. Process, what's involved, outcomes, why it matters.",
       "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
-      "idealFor": "One sentence about who this service is for",
       "price": "Starting at $X or $X-$Y range (realistic for the industry)"
     }
   ]

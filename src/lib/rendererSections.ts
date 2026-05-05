@@ -51,9 +51,51 @@ export function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): st
 }
 
 export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string {
+  const layout = String(c.layout ?? '')
   const stats = Array.isArray(c.stats) ? (c.stats as Array<Record<string, unknown>>) : []
+  const values = Array.isArray(c.values) ? (c.values as Array<Record<string, unknown>>) : []
   const image = c.image ? String(c.image) : (c.logo ? String(c.logo) : null)
+  const tint = hexToRgba(t.primaryColor, 0.05)
 
+  // ── Layout: mission-first ─────────────────────────────────
+  if (layout === 'mission-first' || (layout !== 'narrative' && !stats.length && values.length)) {
+    return `<section style="padding:6rem 1.5rem;background:#fff;">
+  <div style="max-width:900px;margin:0 auto;text-align:center;">
+    <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;margin-bottom:1.5rem;">${esc(String(c.heading ?? 'Our Mission'))}</h2>
+    ${c.mission ? `<p style="font-size:1.3rem;font-style:italic;color:${esc(t.primaryColor)};line-height:1.7;margin-bottom:1.5rem;max-width:720px;margin-left:auto;margin-right:auto;">"${esc(String(c.mission))}"</p>` : ''}
+    ${c.body ? `<p style="color:#4b5563;font-size:1.05rem;line-height:1.9;margin-bottom:3.5rem;">${esc(String(c.body))}</p>` : ''}
+    ${values.length ? `<div class="ss-grid-3" style="text-align:left;">
+      ${values.map(v => `<div style="padding:2rem;border-radius:12px;background:${tint};border-top:3px solid ${esc(t.primaryColor)};">
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.6rem;">${esc(String(v.title ?? ''))}</h3>
+        <p style="color:#4b5563;line-height:1.7;font-size:0.95rem;">${esc(String(v.description ?? ''))}</p>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>
+</section>`
+  }
+
+  // ── Layout: narrative ─────────────────────────────────────
+  if (layout === 'narrative') {
+    return `<section style="padding:6rem 1.5rem;background:${esc(t.primaryColor)};">
+  <div class="ss-grid-2" style="max-width:1100px;margin:0 auto;align-items:center;">
+    <div style="color:#fff;">
+      <h2 style="font-size:2.25rem;font-weight:800;margin-bottom:1.75rem;line-height:1.2;letter-spacing:-0.02em;">${esc(String(c.heading ?? 'Our Story'))}</h2>
+      ${c.body ? `<p style="font-size:1.1rem;line-height:1.95;opacity:0.92;">${esc(String(c.body))}</p>` : ''}
+      ${c.mission ? `<p style="margin-top:2rem;font-size:1rem;font-style:italic;opacity:0.8;border-left:3px solid rgba(255,255,255,0.4);padding-left:1.25rem;">${esc(String(c.mission))}</p>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
+      ${image
+        ? `<img src="${esc(image)}" alt="${esc(String(c.heading ?? ''))}" style="width:100%;border-radius:16px;object-fit:cover;max-height:400px;" />`
+        : `<div style="background:rgba(255,255,255,0.12);border-radius:16px;height:320px;display:flex;align-items:center;justify-content:center;">
+          <div style="font-size:5rem;font-weight:900;color:rgba(255,255,255,0.2);letter-spacing:-0.05em;">${esc(String(c.heading ?? 'Our Story')[0])}</div>
+        </div>`
+      }
+    </div>
+  </div>
+</section>`
+  }
+
+  // ── Layout: split-stats (default) ────────────────────────
   if (stats.length) {
     return `<section style="padding:6rem 1.5rem;background:#fff;">
   <div class="ss-grid-2" style="max-width:1100px;margin:0 auto;">
@@ -66,11 +108,14 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
     </div>
     <div>
       <h2 style="font-size:2.25rem;font-weight:800;margin-bottom:1.5rem;letter-spacing:-0.02em;">${esc(String(c.heading ?? 'About Us'))}</h2>
+      ${c.mission ? `<p style="color:${esc(t.primaryColor)};font-weight:600;font-size:1.05rem;margin-bottom:1.25rem;font-style:italic;">"${esc(String(c.mission))}"</p>` : ''}
       ${c.body ? `<p style="color:#4b5563;font-size:1.1rem;line-height:1.85;">${esc(String(c.body))}</p>` : ''}
     </div>
   </div>
 </section>`
   }
+
+  // Fallback: centered
   return `<section style="padding:6rem 1.5rem;background:#fff;">
   <div style="max-width:760px;margin:0 auto;text-align:center;">
     ${image ? `<img src="${esc(image)}" alt="${esc(String(c.heading ?? 'About'))}" style="max-width:240px;max-height:160px;object-fit:contain;margin:0 auto 2.5rem;display:block;" />` : ''}
@@ -82,12 +127,72 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
 
 export function renderServices(c: Record<string, unknown>, t: ThemeConfig): string {
   const svcs = Array.isArray(c.services) ? (c.services as Array<Record<string, unknown>>) : []
-  return `<section style="padding:6rem 1.5rem;background:${hexToRgba(t.primaryColor, 0.05)};">
-  <div style="max-width:1100px;margin:0 auto;">
-    <div style="text-align:center;margin-bottom:3.5rem;">
-      <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Our Services'))}</h2>
-      ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;max-width:600px;margin-left:auto;margin-right:auto;">${esc(String(c.subheading))}</p>` : ''}
+  const layout = String(c.layout ?? 'card-grid')
+  const tint = hexToRgba(t.primaryColor, 0.05)
+  const heading = `<div style="text-align:center;margin-bottom:3.5rem;">
+    <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Our Services'))}</h2>
+    ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;max-width:600px;margin-left:auto;margin-right:auto;">${esc(String(c.subheading))}</p>` : ''}
+  </div>`
+
+  // ── Layout: icon-rows (B2B / detailed services) ───────────
+  if (layout === 'icon-rows') {
+    return `<section style="padding:6rem 1.5rem;background:${tint};">
+  <div style="max-width:900px;margin:0 auto;">
+    ${heading}
+    <div style="display:flex;flex-direction:column;gap:0;">
+      ${svcs.map((s, i) => {
+        const includes = Array.isArray(s.includes) ? (s.includes as string[]) : []
+        return `<div style="display:flex;gap:2rem;align-items:flex-start;padding:2.5rem 0;${i > 0 ? 'border-top:1px solid #e5e7eb;' : ''}">
+          <div style="flex-shrink:0;width:48px;height:48px;border-radius:12px;background:${esc(t.primaryColor)};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.1rem;">${i + 1}</div>
+          <div style="flex:1;">
+            <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:0.6rem;">${esc(String(s.title ?? ''))}</h3>
+            <p style="color:#4b5563;line-height:1.8;margin-bottom:${includes.length ? '1rem' : '0'};">${esc(String(s.description ?? ''))}</p>
+            ${includes.length ? `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+              ${includes.map(inc => `<span style="background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:0.2rem 0.85rem;font-size:0.82rem;color:#374151;">${esc(inc)}</span>`).join('')}
+            </div>` : ''}
+            ${s.price ? `<p style="margin-top:0.85rem;font-weight:700;color:${esc(t.primaryColor)};font-size:0.97rem;">${esc(String(s.price))}</p>` : ''}
+          </div>
+        </div>`
+      }).join('')}
     </div>
+  </div>
+</section>`
+  }
+
+  // ── Layout: showcase (premium / featured services) ────────
+  if (layout === 'showcase') {
+    return `<section style="padding:6rem 1.5rem;background:#fff;">
+  <div style="max-width:1000px;margin:0 auto;">
+    ${heading}
+    <div style="display:flex;flex-direction:column;gap:3rem;">
+      ${svcs.map((s, i) => {
+        const includes = Array.isArray(s.includes) ? (s.includes as string[]) : []
+        const isEven = i % 2 === 0
+        return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;${!isEven ? 'direction:rtl;' : ''}">
+          <div style="${!isEven ? 'direction:ltr;' : ''}background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;min-height:280px;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.7;margin-bottom:0.75rem;">Service ${String(i + 1).padStart(2, '0')}</div>
+            <h3 style="font-size:1.6rem;font-weight:800;margin-bottom:0.75rem;line-height:1.2;">${esc(String(s.title ?? ''))}</h3>
+            ${s.price ? `<p style="font-size:1.1rem;font-weight:700;opacity:0.9;">${esc(String(s.price))}</p>` : ''}
+          </div>
+          <div style="${!isEven ? 'direction:ltr;' : ''}">
+            <p style="color:#374151;line-height:1.85;font-size:1.05rem;margin-bottom:${includes.length ? '1.5rem' : '0'};">${esc(String(s.description ?? ''))}</p>
+            ${includes.length ? `<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.5rem;">
+              ${includes.map(inc => `<li style="display:flex;gap:0.6rem;align-items:center;font-size:0.95rem;color:#374151;">
+                <span style="color:${esc(t.primaryColor)};font-weight:700;flex-shrink:0;">✓</span>${esc(inc)}
+              </li>`).join('')}
+            </ul>` : ''}
+          </div>
+        </div>`
+      }).join('')}
+    </div>
+  </div>
+</section>`
+  }
+
+  // ── Layout: card-grid (default) ───────────────────────────
+  return `<section style="padding:6rem 1.5rem;background:${tint};">
+  <div style="max-width:1100px;margin:0 auto;">
+    ${heading}
     <div class="ss-grid-3">
       ${svcs.map(s => `<div class="ss-card" style="background:#fff;border-radius:12px;padding:2.25rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-top:3px solid ${esc(t.primaryColor)};">
         <div style="width:36px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:1.25rem;"></div>
