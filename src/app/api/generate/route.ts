@@ -2,7 +2,6 @@
 // SiteSync v2 — /api/generate
 // Generates a site section-by-section, streaming progress
 // ============================================================
-
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planSite, generateSection } from '@/services/sectionGeneratorService'
@@ -20,7 +19,6 @@ export async function POST(request: Request) {
     userId?: string
     userEmail?: string
   }
-
   try {
     body = await request.json()
   } catch {
@@ -28,11 +26,9 @@ export async function POST(request: Request) {
   }
 
   const { siteName, subdomain, prompt, userId, userEmail } = body
-
   if (!siteName || !subdomain || !prompt || !userId || !userEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
-
   if (!/^[a-z0-9-]{3,30}$/.test(subdomain)) {
     return NextResponse.json(
       { error: 'Subdomain must be 3–30 lowercase letters, numbers, or hyphens' },
@@ -46,7 +42,6 @@ export async function POST(request: Request) {
     .select('id')
     .eq('subdomain', subdomain)
     .single()
-
   if (existing) {
     return NextResponse.json(
       { error: 'That subdomain is already taken. Please choose another.' },
@@ -55,6 +50,7 @@ export async function POST(request: Request) {
   }
 
   const updateEmail = `update+${subdomain}@mg.sceneengineering.com`
+  const basePath = `/sites/${subdomain}`
   const encoder = new TextEncoder()
 
   // ── 3. Open SSE stream ────────────────────────────────────
@@ -65,9 +61,8 @@ export async function POST(request: Request) {
       }
 
       let siteId: string | null = null
-
       try {
-        // ── 4. Plan the site (fast Haiku call) ─────────────
+        // ── 4. Plan the site (fast Haiku call) ───────────────
         send({ type: 'status', message: 'Planning your site…' })
         const plan = await planSite(siteName!, prompt!)
         const { theme } = plan
@@ -75,7 +70,7 @@ export async function POST(request: Request) {
 
         send({ type: 'status', message: 'Creating site record…' })
 
-        // ── 5. Create site record (status: building) ───────
+        // ── 5. Create site record (status: building) ─────────
         const { data: siteRow, error: siteErr } = await supabaseAdmin
           .from('sites')
           .insert({
@@ -90,7 +85,6 @@ export async function POST(request: Request) {
           })
           .select()
           .single()
-
         if (siteErr || !siteRow) {
           console.error('Site insert error:', siteErr)
           send({ type: 'error', message: 'Failed to create site record.' })
@@ -99,7 +93,7 @@ export async function POST(request: Request) {
         }
         siteId = siteRow.id
 
-        // ── 6. Create all pages ────────────────────────────
+        // ── 6. Create all pages ───────────────────────────────
         const pageInserts = plan.pages.map((p, i) => ({
           site_id: siteId!,
           slug: p.slug,
@@ -109,12 +103,10 @@ export async function POST(request: Request) {
           is_homepage: p.isHomepage,
           published: true,
         }))
-
         const { data: pageRows, error: pageErr } = await supabaseAdmin
           .from('pages')
           .insert(pageInserts)
           .select()
-
         if (pageErr || !pageRows?.length) {
           console.error('Pages insert error:', pageErr)
           send({ type: 'error', message: 'Failed to create pages.' })
@@ -122,7 +114,7 @@ export async function POST(request: Request) {
           return
         }
 
-        // ── 7. Generate sections for home page ─────────────
+        // ── 7. Generate sections for home page ───────────────
         const homePageRow = pageRows.find((p: PageRow) => p.is_homepage) as PageRow
         const totalSections = homePage.sections.length
         const builtSections: SectionRow[] = []
@@ -135,7 +127,6 @@ export async function POST(request: Request) {
             current: i + 1,
             total: totalSections,
           })
-
           const { content, sectionCss, sectionJs } = await generateSection(
             sectionPlan.type,
             sectionPlan.label,
@@ -143,7 +134,6 @@ export async function POST(request: Request) {
             prompt!,
             theme
           )
-
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
             .insert({
@@ -159,18 +149,15 @@ export async function POST(request: Request) {
             })
             .select()
             .single()
-
           if (secErr || !sectionRow) {
             console.error(`Section insert error (${sectionPlan.type}):`, secErr)
             continue // non-fatal, keep building
           }
-
           builtSections.push(sectionRow as SectionRow)
         }
 
-        // ── 8. Render full HTML from sections ──────────────
+        // ── 8. Render full HTML from sections ─────────────────
         send({ type: 'status', message: 'Rendering site…' })
-
         const html = renderPage({
           page: homePageRow,
           sections: builtSections,
@@ -178,9 +165,10 @@ export async function POST(request: Request) {
           siteName: siteName!,
           allPages: pageRows as PageRow[],
           updateEmail,
+          basePath,
         })
 
-        // ── 9. Cache rendered HTML for fast serving ─────────
+        // ── 9. Cache rendered HTML for fast serving ───────────
         const { error: cacheErr } = await supabaseAdmin
           .from('site_html_cache')
           .upsert({
@@ -189,12 +177,11 @@ export async function POST(request: Request) {
             html_content: html,
             updated_at: new Date().toISOString(),
           })
-
         if (cacheErr) {
           console.error('HTML cache write error:', cacheErr)
         }
 
-        // ── 10. Save initial version snapshot ──────────────
+        // ── 10. Save initial version snapshot ─────────────────
         await supabaseAdmin.from('versions').insert({
           site_id: siteId!,
           page_id: homePageRow.id,
@@ -204,7 +191,7 @@ export async function POST(request: Request) {
           update_instructions: prompt,
         })
 
-        // ── 11. Activate site ───────────────────────────────
+        // ── 11. Activate site ──────────────────────────────────
         await supabaseAdmin
           .from('sites')
           .update({ status: 'active' })
@@ -213,15 +200,12 @@ export async function POST(request: Request) {
         send({ type: 'done', subdomain, siteId: siteId! })
       } catch (err) {
         console.error('Generate error:', err)
-
         // Clean up partial site
         if (siteId) {
           await supabaseAdmin.from('sites').delete().eq('id', siteId)
         }
-
         send({ type: 'error', message: 'Site generation failed. Please try again.' })
       }
-
       controller.close()
     },
   })
