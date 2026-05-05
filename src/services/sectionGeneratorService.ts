@@ -18,6 +18,7 @@ Your writing must be:
 - HUMAN: Varied sentence length, natural voice, professional but approachable
 - CREDIBLE: Specific numbers, timelines, certifications, and outcomes where appropriate
 - COMPLETE: Fill every field fully — no empty strings, no "Lorem ipsum", no "Coming soon"
+- CLEAN: Never use em dashes (—) or en dashes (–). Use commas or rewrite the sentence instead.
 
 Return ONLY valid JSON matching the exact schema requested. No markdown fences, no explanation.`
 
@@ -209,7 +210,6 @@ Each service needs DEEP detail — this is a services page, not a homepage overv
     {
       "title": "Specific Service Name",
       "description": "3-4 sentence detailed description. Explain the process, what's involved, outcomes clients get, and why this service matters. Be specific to the industry.",
-      "icon": "relevant emoji",
       "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
       "idealFor": "One sentence about who this service is for",
       "price": "Starting at $X or $X-$Y range (realistic for the industry)"
@@ -226,8 +226,7 @@ Real differentiators or capabilities — specific to this page context, not gene
   "features": [
     {
       "title": "Specific capability or differentiator name",
-      "description": "2-3 sentences explaining WHY this matters and HOW it benefits the client. Specific, not generic.",
-      "icon": "relevant emoji"
+      "description": "2-3 sentences explaining WHY this matters and HOW it benefits the client. Specific, not generic."
     }
   ]
 }
@@ -347,12 +346,12 @@ Add 1-2 more fields specific to this industry (e.g. company size, number of empl
   "heading": "Our Work",
   "subheading": "A sample of recent projects and results",
   "items": [
-    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "🏗️" },
-    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "✅" },
-    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "⭐" }
+    { "title": "Project Name", "description": "Brief outcome or what was delivered." },
+    { "title": "Project Name", "description": "Brief outcome or what was delivered." },
+    { "title": "Project Name", "description": "Brief outcome or what was delivered." }
   ]
 }
-Generate 3-6 realistic, specific portfolio items or work samples for this business. Use appropriate emojis as icons. Make titles and descriptions specific to their industry.`,
+Generate 3-6 realistic, specific portfolio items or work samples for this business. Make titles and descriptions specific to their industry.`,
 
     custom: `${base}
 { "html": "<section style=\\"padding:4rem 1.5rem;text-align:center;\\"><h2>Section</h2></section>", "description": "custom section" }`,

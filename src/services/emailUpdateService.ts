@@ -79,7 +79,7 @@ async function updateSectionContent(
     max_tokens: 2048,
     messages: [{
       role: 'user',
-      content: `Update this "${section.type}" section for the website "${siteName}".\n\nCurrent content:\n${JSON.stringify(section.content, null, 2)}\n\nUpdate instructions: ${instructions}\n\nReturn ONLY the updated JSON object — same structure, no markdown, no explanation.`
+      content: `Update this "${section.type}" section for the website "${siteName}".\n\nCurrent content:\n${JSON.stringify(section.content, null, 2)}\n\nUpdate instructions: ${instructions}\n\nRules:\n- Return ONLY the updated JSON object — same structure, no markdown, no explanation.\n- Never use em dashes (—) or en dashes (–). Use commas or rewrite the sentence instead.\n- Do not use emojis anywhere in the content.`
     }],
   })
   const text = msg.content[0].type === 'text' ? msg.content[0].text : ''

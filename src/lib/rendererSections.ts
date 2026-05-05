@@ -6,6 +6,8 @@ import type { ThemeConfig } from '@/types/site'
 
 export function esc(str: string): string {
   return str
+    .replace(/—/g, ' - ')   // em dash  —
+    .replace(/–/g, ' - ')   // en dash  –
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -72,7 +74,7 @@ export function renderServices(c: Record<string, unknown>, t: ThemeConfig): stri
     </div>
     <div class="ss-grid-3">
       ${svcs.map(s => `<div class="ss-card" style="background:#fff;border-radius:12px;padding:2.25rem;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-top:3px solid ${esc(t.primaryColor)};">
-        ${s.icon ? `<div style="font-size:2.25rem;margin-bottom:1.25rem;">${String(s.icon)}</div>` : ''}
+        <div style="width:36px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:1.25rem;"></div>
         <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.75rem;">${esc(String(s.title ?? ''))}</h3>
         <p style="color:#4b5563;line-height:1.75;font-size:0.97rem;">${esc(String(s.description ?? ''))}</p>
         ${s.price ? `<p style="margin-top:1.25rem;font-weight:700;color:${esc(t.primaryColor)};">${esc(String(s.price))}</p>` : ''}
@@ -98,7 +100,7 @@ export function renderFeatures(c: Record<string, unknown>, t: ThemeConfig): stri
     </div>
     <div class="ss-grid-3">
       ${features.map(f => `<div class="ss-card" style="padding:2rem;border-radius:12px;background:${cardBg};">
-        ${f.icon ? `<div style="font-size:2.5rem;margin-bottom:1rem;">${String(f.icon)}</div>` : `<div style="width:44px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:1rem;"></div>`}
+        <div style="width:44px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:1rem;"></div>
         <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.6rem;color:${headColor};">${esc(String(f.title ?? ''))}</h3>
         <p style="color:${cardText};line-height:1.75;font-size:0.95rem;">${esc(String(f.description ?? ''))}</p>
       </div>`).join('')}
@@ -240,7 +242,7 @@ export function renderGallery(c: Record<string, unknown>, t: ThemeConfig): strin
     </div>
     <div class="ss-grid-3">
       ${items.map(item => `<div class="ss-card" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-        <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});height:180px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700;">${item.icon ? String(item.icon) : esc(String(item.title ?? '')[0] ?? '')}</div>
+        <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});height:180px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700;">${esc(String(item.title ?? '')[0] ?? '')}</div>
         ${item.title || item.description ? `<div style="padding:1.5rem;">
           ${item.title ? `<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">${esc(String(item.title))}</h3>` : ''}
           ${item.description ? `<p style="color:#4b5563;font-size:0.95rem;line-height:1.7;">${esc(String(item.description))}</p>` : ''}
