@@ -110,14 +110,24 @@ export async function POST(request: Request) {
 
         // ── 7. Persist scraped content for future page generations ─
         if (existingContent) {
-          const enc = new TextEncoder()
-          await supabaseAdmin.storage
-            .from('site-assets')
-            .upload(
-              `${siteId}/_scrape.json`,
-              enc.encode(JSON.stringify({ content: existingContent })),
-              { contentType: 'application/json', upsert: true }
-            )
+          try {
+            // Ensure bucket exists
+            const { data: buckets } = await supabaseAdmin.storage.listBuckets()
+            if (!buckets?.find(b => b.name === 'site-assets')) {
+              await supabaseAdmin.storage.createBucket('site-assets', { public: true })
+            }
+            const enc = new TextEncoder()
+            await supabaseAdmin.storage
+              .from('site-assets')
+              .upload(
+                `${siteId}/_scrape.json`,
+                enc.encode(JSON.stringify({ content: existingContent })),
+                { contentType: 'application/json', upsert: true }
+              )
+          } catch (err) {
+            console.error('Failed to persist scrape content:', err)
+            // Non-fatal — homepage still has real content, page suggestions still work
+          }
         }
 
         // ── 8. Create homepage only — other pages added on demand ─
