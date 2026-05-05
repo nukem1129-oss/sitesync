@@ -26,6 +26,7 @@ export interface Theme {
   fontFamily: string      // e.g. "'Inter', sans-serif"
   headingFont: string     // e.g. "'Poppins', sans-serif"
   borderRadius: string    // e.g. "8px"
+    style?: string          // e.g. "modern" | "classic" | "minimal" | "bold"
 }
 
 export type ThemeConfig = Theme
@@ -238,6 +239,14 @@ export interface SitePlan {
     sections: Array<{ type: SectionType; label: string }>
   }>
 }
+
+// ── Section plan (used by planPage for sub-page generation) ────
+
+export interface SectionPlan {
+    type: string
+    label: string
+}
+
 
 // ── Page plan (returned by planPage for sub-page generation) ──
 
