@@ -2,7 +2,6 @@
 // SiteSync v2 — /api/generate-page
 // Adds a new page to an existing site, streaming progress via SSE
 // ============================================================
-
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { planPage, generateSection } from '@/services/sectionGeneratorService'
@@ -18,7 +17,6 @@ export async function POST(request: Request) {
     pageSlug?: string
     userId?: string
   }
-
   try {
     body = await request.json()
   } catch {
@@ -29,7 +27,6 @@ export async function POST(request: Request) {
   if (!siteId || !pageName || !pageSlug || !userId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
-
   if (!/^[a-z0-9-]{2,50}$/.test(pageSlug)) {
     return NextResponse.json(
       { error: 'Slug must be 2–50 lowercase letters, numbers, or hyphens' },
@@ -43,11 +40,9 @@ export async function POST(request: Request) {
     .eq('id', siteId)
     .eq('owner_id', userId)
     .single()
-
   if (siteErr || !site) {
     return NextResponse.json({ error: 'Site not found or access denied' }, { status: 403 })
   }
-
   if (site.status !== 'active') {
     return NextResponse.json({ error: 'Site is not yet active' }, { status: 409 })
   }
@@ -58,7 +53,6 @@ export async function POST(request: Request) {
     .eq('site_id', siteId)
     .eq('slug', pageSlug)
     .single()
-
   if (existingPage) {
     return NextResponse.json(
       { error: `A page with slug "${pageSlug}" already exists on this site` },
@@ -67,6 +61,7 @@ export async function POST(request: Request) {
   }
 
   const theme = site.theme as ThemeConfig
+  const basePath = `/sites/${site.subdomain}`
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -148,7 +143,6 @@ export async function POST(request: Request) {
             current: i + 1,
             total: totalSections,
           })
-
           const { content, sectionCss, sectionJs } = await generateSection(
             sectionPlan.type,
             sectionPlan.label,
@@ -156,7 +150,6 @@ export async function POST(request: Request) {
             pageContext,
             theme
           )
-
           const { data: sectionRow, error: secErr } = await supabaseAdmin
             .from('sections')
             .insert({
@@ -172,13 +165,11 @@ export async function POST(request: Request) {
             })
             .select()
             .single()
-
           if (!secErr && sectionRow) builtSections.push(sectionRow as SectionRow)
         }
 
         // ── 4. Fetch all pages for nav + render ─────────────────
         send({ type: 'status', message: 'Rendering page…' })
-
         const { data: allPageRows } = await supabaseAdmin
           .from('pages')
           .select('id, slug, title, nav_label, nav_order, is_homepage, published, site_id')
@@ -195,8 +186,8 @@ export async function POST(request: Request) {
           siteName: site.name,
           allPages,
           updateEmail: site.update_email,
+          basePath,
         })
-
         await supabaseAdmin.from('site_html_cache').upsert(
           {
             site_id: siteId,
@@ -209,7 +200,6 @@ export async function POST(request: Request) {
 
         // ── 6. Re-cache all other pages (nav has changed) ───────
         send({ type: 'status', message: 'Updating navigation on all pages…' })
-
         for (const otherPage of allPages.filter(p => p.slug !== pageSlug)) {
           const { data: otherSections } = await supabaseAdmin
             .from('sections')
@@ -230,8 +220,8 @@ export async function POST(request: Request) {
               siteName: site.name,
               allPages,
               updateEmail: site.update_email,
+              basePath,
             })
-
             await supabaseAdmin.from('site_html_cache').upsert(
               {
                 site_id: siteId,
@@ -249,7 +239,6 @@ export async function POST(request: Request) {
         console.error('Generate-page error:', err)
         send({ type: 'error', message: 'Page generation failed. Please try again.' })
       }
-
       controller.close()
     },
   })
