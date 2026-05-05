@@ -1,8 +1,14 @@
 // ============================================================
-// SiteSync v2 — HTML renderer
-// Assembles a full HTML page from section rows
+// SiteSync v2 — Page assembler
+// Imports section renderers; builds full HTML with global CSS
 // ============================================================
 import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
+import {
+  esc,
+  renderHero, renderPageHeader, renderAbout, renderServices,
+  renderFeatures, renderTeam, renderTestimonials, renderProcess,
+  renderFAQ, renderPricing, renderGallery,
+} from './rendererSections'
 
 interface RenderPageArgs {
   page: PageRow
@@ -10,20 +16,11 @@ interface RenderPageArgs {
   theme: ThemeConfig
   siteName: string
   allPages: PageRow[]
-  updateEmail: string
-  basePath?: string   // e.g. '/sites/tc-risk' — prefixed on all nav hrefs
+  updateEmail: string | null
+  basePath?: string
 }
 
-// ── HTML escaping ─────────────────────────────────────────────
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-// ── Option helper: handles both "string" and {value, label} ──
+// ── Option helper ─────────────────────────────────────────────
 type OptionItem = string | { value: string; label: string }
 function renderOption(o: OptionItem): string {
   if (typeof o === 'string') return `<option value="${esc(o)}">${esc(o)}</option>`
@@ -33,113 +30,27 @@ function renderOption(o: OptionItem): string {
 }
 
 // ── Form field renderer ───────────────────────────────────────
-interface FormField {
-  type: string
-  name: string
-  label: string
-  placeholder?: string
-  required?: boolean
-  options?: OptionItem[]
-}
+interface FormField { type: string; name: string; label: string; placeholder?: string; required?: boolean; options?: OptionItem[] }
 function renderFormField(field: FormField, sid: string): string {
   const req = field.required ? ' required' : ''
   const ph = field.placeholder ? ` placeholder="${esc(field.placeholder)}"` : ''
-  const base = 'padding:0.65rem 0.9rem;border:1.5px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:1rem;width:100%;box-sizing:border-box;outline:none;'
-  const lbl = `<label style="font-weight:500;font-size:0.9rem;color:#374151;">${esc(field.label)}${field.required ? ' *' : ''}</label>`
+  const base = 'class="ss-input" style="padding:0.65rem 0.9rem;border:1.5px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:1rem;width:100%;box-sizing:border-box;"'
+  const lbl = `<label style="font-weight:600;font-size:0.875rem;color:#374151;">${esc(field.label)}${field.required ? ' *' : ''}</label>`
   switch (field.type) {
     case 'textarea':
-      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<textarea name="${esc(field.name)}"${ph}${req} rows="4" style="${base}resize:vertical;"></textarea></div>`
+      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<textarea name="${esc(field.name)}"${ph}${req} rows="4" ${base} style="padding:0.65rem 0.9rem;border:1.5px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:1rem;width:100%;box-sizing:border-box;resize:vertical;"></textarea></div>`
     case 'select': {
       const opts = (field.options ?? []).map(renderOption).join('')
-      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<select name="${esc(field.name)}"${req} style="${base}"><option value="">Select…</option>${opts}</select></div>`
+      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<select name="${esc(field.name)}"${req} ${base}><option value="">Select…</option>${opts}</select></div>`
     }
     case 'checkbox':
-      return `<div style="display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="${esc(field.name)}" id="chk_${esc(field.name)}_${sid}"${req} style="width:1rem;height:1rem;"/><label for="chk_${esc(field.name)}_${sid}" style="font-size:0.9rem;color:#374151;">${esc(field.label)}</label></div>`
+      return `<div style="display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="${esc(field.name)}" id="chk_${esc(field.name)}_${sid}"${req} style="width:1rem;height:1rem;accent-color:var(--primary);"/><label for="chk_${esc(field.name)}_${sid}" style="font-size:0.9rem;color:#374151;">${esc(field.label)}</label></div>`
     default:
-      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<input type="${esc(field.type)}" name="${esc(field.name)}"${ph}${req} style="${base}"/></div>`
+      return `<div style="display:flex;flex-direction:column;gap:0.4rem;">${lbl}<input type="${esc(field.type)}" name="${esc(field.name)}"${ph}${req} ${base}/></div>`
   }
 }
 
-// ── Section type renderers ────────────────────────────────────
-function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue ?? `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
-  return `<section style="background:${bg};padding:6rem 1.5rem;text-align:center;color:#fff;">
-  <div style="max-width:800px;margin:0 auto;">
-    <h1 style="font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:1.5rem;">${esc(String(c.headline ?? ''))}</h1>
-    ${c.subheadline ? `<p style="font-size:1.2rem;opacity:0.9;margin-bottom:2.5rem;">${esc(String(c.subheadline))}</p>` : ''}
-    ${c.ctaText ? `<a href="${esc(String(c.ctaLink ?? '#contact'))}" style="display:inline-block;background:#fff;color:${esc(t.primaryColor)};padding:0.9rem 2.5rem;border-radius:6px;font-weight:700;font-size:1.05rem;text-decoration:none;">${esc(String(c.ctaText))}</a>` : ''}
-  </div>
-</section>`
-}
-
-function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string {
-  const stats = Array.isArray(c.stats) ? (c.stats as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#fff;">
-  <div style="max-width:1100px;margin:0 auto;text-align:center;">
-    <h2 style="font-size:2.25rem;font-weight:700;margin-bottom:1.5rem;">${esc(String(c.heading ?? 'About Us'))}</h2>
-    ${c.body ? `<p style="max-width:700px;margin:0 auto 3rem;color:#4b5563;font-size:1.1rem;line-height:1.8;">${esc(String(c.body))}</p>` : ''}
-    ${stats.length ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:3rem;">
-      ${stats.map(s => `<div><div style="font-size:2.5rem;font-weight:800;color:${esc(t.primaryColor)};">${esc(String(s.value ?? ''))}</div><div style="color:#6b7280;">${esc(String(s.label ?? ''))}</div></div>`).join('')}
-    </div>` : ''}
-  </div>
-</section>`
-}
-
-function renderServices(c: Record<string, unknown>, t: ThemeConfig): string {
-  const svcs = Array.isArray(c.services) ? (c.services as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
-  <div style="max-width:1100px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'Our Services'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;">
-      ${svcs.map(s => `<div style="background:#fff;border-radius:8px;padding:2rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
-        ${s.icon ? `<div style="font-size:2.5rem;margin-bottom:1rem;">${String(s.icon)}</div>` : ''}
-        <h3 style="font-size:1.2rem;font-weight:700;color:${esc(t.primaryColor)};margin-bottom:0.75rem;">${esc(String(s.title ?? ''))}</h3>
-        <p style="color:#4b5563;line-height:1.7;">${esc(String(s.description ?? ''))}</p>
-        ${s.price ? `<p style="margin-top:1rem;font-weight:600;color:${esc(t.primaryColor)};">${esc(String(s.price))}</p>` : ''}
-      </div>`).join('')}
-    </div>
-  </div>
-</section>`
-}
-
-function renderTeam(c: Record<string, unknown>, t: ThemeConfig): string {
-  const members = Array.isArray(c.members) ? (c.members as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#fff;">
-  <div style="max-width:1100px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:3rem;">${esc(String(c.heading ?? 'Our Team'))}</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2rem;">
-      ${members.map(m => {
-        const name = String(m.name ?? '?')
-        return `<div style="text-align:center;padding:2rem;">
-          <div style="width:80px;height:80px;border-radius:50%;background:${esc(t.primaryColor)};margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.75rem;font-weight:700;">${esc(name[0])}</div>
-          <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.25rem;">${esc(name)}</h3>
-          <p style="color:${esc(t.primaryColor)};font-weight:500;font-size:0.9rem;margin-bottom:0.5rem;">${esc(String(m.role ?? ''))}</p>
-          ${m.bio ? `<p style="color:#6b7280;font-size:0.9rem;">${esc(String(m.bio))}</p>` : ''}
-        </div>`
-      }).join('')}
-    </div>
-  </div>
-</section>`
-}
-
-function renderTestimonials(c: Record<string, unknown>): string {
-  const tms = Array.isArray(c.testimonials) ? (c.testimonials as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
-  <div style="max-width:1100px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:3rem;">${esc(String(c.heading ?? 'What Our Clients Say'))}</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;">
-      ${tms.map(t => `<div style="background:#fff;border-radius:8px;padding:2rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
-        ${t.rating ? `<div style="color:#f59e0b;margin-bottom:1rem;">${'★'.repeat(Number(t.rating))}</div>` : ''}
-        <p style="color:#374151;line-height:1.75;font-style:italic;margin-bottom:1.5rem;">"<em>${esc(String(t.quote ?? ''))}</em>"</p>
-        <div style="font-weight:700;">${esc(String(t.author ?? ''))}</div>
-        ${(t.role || t.company) ? `<div style="font-size:0.85rem;color:#6b7280;">${[t.role, t.company].filter(Boolean).map(x => esc(String(x))).join(', ')}</div>` : ''}
-      </div>`).join('')}
-    </div>
-  </div>
-</section>`
-}
-
+// ── Contact section ───────────────────────────────────────────
 function renderContact(c: Record<string, unknown>, sid: string, t: ThemeConfig): string {
   const fields = Array.isArray(c.formFields) ? (c.formFields as FormField[]) : [
     { type: 'text',     name: 'name',    label: 'Full Name', required: true },
@@ -148,20 +59,27 @@ function renderContact(c: Record<string, unknown>, sid: string, t: ThemeConfig):
   ]
   const submitLabel = String(c.submitLabel ?? 'Send Message')
   const contactInfo = [
-    c.email   && `📧 ${esc(String(c.email))}`,
+    c.email   && `📧 <a href="mailto:${esc(String(c.email))}" style="color:var(--primary);text-decoration:none;">${esc(String(c.email))}</a>`,
     c.phone   && `📞 ${esc(String(c.phone))}`,
     c.address && `📍 ${esc(String(c.address))}`,
-  ].filter(Boolean).join(' &nbsp;&middot;&nbsp; ')
-  return `<section id="contact" style="padding:5rem 1.5rem;background:#fff;">
-  <div style="max-width:800px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '2rem'};">${esc(String(c.heading ?? 'Get In Touch'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:#6b7280;margin-bottom:2rem;">${esc(String(c.subheading))}</p>` : ''}
-    ${contactInfo ? `<p style="text-align:center;margin-bottom:2rem;color:#374151;">${contactInfo}</p>` : ''}
-    <form id="form_${sid}" style="background:#f9fafb;padding:2.5rem;border-radius:8px;display:flex;flex-direction:column;gap:1.25rem;" onsubmit="submitForm_${sid}(event)">
-      <div id="form_msg_${sid}" style="display:none;padding:1rem;border-radius:6px;"></div>
-      ${fields.map(f => renderFormField(f, sid)).join('\n  ')}
-      <button type="submit" style="background:${esc(t.primaryColor)};color:#fff;padding:0.85rem 2rem;border-radius:6px;font-weight:700;font-size:1rem;cursor:pointer;border:none;align-self:flex-start;">${esc(submitLabel)}</button>
-    </form>
+  ].filter(Boolean).join('<br/>')
+  return `<section id="contact" style="padding:6rem 1.5rem;background:#fff;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:3.5rem;">
+      <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Get In Touch'))}</h2>
+      ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;">${esc(String(c.subheading))}</p>` : ''}
+    </div>
+    <div class="ss-grid-2">
+      ${contactInfo ? `<div style="background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:16px;padding:3rem;color:#fff;">
+        <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:1.5rem;">Contact Info</h3>
+        <div style="display:flex;flex-direction:column;gap:1.25rem;line-height:1.7;opacity:0.92;">${contactInfo}</div>
+      </div>` : '<div></div>'}
+      <form id="form_${sid}" style="background:#f8f9fc;padding:2.5rem;border-radius:16px;display:flex;flex-direction:column;gap:1.25rem;" onsubmit="submitForm_${sid}(event)">
+        <div id="form_msg_${sid}" style="display:none;padding:1rem;border-radius:8px;"></div>
+        ${fields.map(f => renderFormField(f, sid)).join('\n  ')}
+        <button type="submit" class="ss-btn" style="background:${esc(t.primaryColor)};color:#fff;align-self:flex-start;">${esc(submitLabel)}</button>
+      </form>
+    </div>
   </div>
 </section>
 <script>
@@ -182,227 +100,132 @@ async function submitForm_${sid}(e){
 </script>`
 }
 
-// ── NEW: Page-header renderer ─────────────────────────────────
-function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue ?? t.primaryColor)
-  return `<section style="background:${bg};padding:4rem 1.5rem;text-align:center;color:#fff;">
-  <div style="max-width:800px;margin:0 auto;">
-    <h1 style="font-size:clamp(1.75rem,4vw,3rem);font-weight:800;line-height:1.15;margin-bottom:1rem;">${esc(String(c.heading ?? ''))}</h1>
-    ${c.subheading ? `<p style="font-size:1.1rem;opacity:0.9;max-width:600px;margin:0 auto;">${esc(String(c.subheading))}</p>` : ''}
-  </div>
-</section>`
-}
-
-// ── NEW: Features renderer ────────────────────────────────────
-function renderFeatures(c: Record<string, unknown>, t: ThemeConfig): string {
-  const features = Array.isArray(c.features) ? (c.features as Array<Record<string, unknown>>) : []
-  const altBg = (c.background === 'dark') ? '#1f2937' : '#fff'
-  const altText = (c.background === 'dark') ? '#fff' : '#222'
-  return `<section style="padding:5rem 1.5rem;background:${altBg};color:${altText};">
-  <div style="max-width:1100px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};color:${altText};">${esc(String(c.heading ?? 'Features'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:${c.background === 'dark' ? '#9ca3af' : '#6b7280'};font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2rem;">
-      ${features.map(f => `<div style="padding:1.75rem;border-radius:8px;background:${c.background === 'dark' ? '#374151' : '#f9fafb'};">
-        ${f.icon ? `<div style="font-size:2.25rem;margin-bottom:0.75rem;">${String(f.icon)}</div>` : `<div style="width:48px;height:4px;background:${esc(t.primaryColor)};border-radius:2px;margin-bottom:0.75rem;"></div>`}
-        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;color:${altText};">${esc(String(f.title ?? ''))}</h3>
-        <p style="color:${c.background === 'dark' ? '#d1d5db' : '#4b5563'};line-height:1.7;font-size:0.95rem;">${esc(String(f.description ?? ''))}</p>
-      </div>`).join('')}
-    </div>
-  </div>
-</section>`
-}
-
-// ── NEW: Process renderer ─────────────────────────────────────
-function renderProcess(c: Record<string, unknown>, t: ThemeConfig): string {
-  const steps = Array.isArray(c.steps) ? (c.steps as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
-  <div style="max-width:900px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'How It Works'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
-    <div style="display:flex;flex-direction:column;gap:2rem;">
-      ${steps.map((step, i) => `<div style="display:flex;gap:1.5rem;align-items:flex-start;">
-        <div style="flex-shrink:0;width:48px;height:48px;border-radius:50%;background:${esc(t.primaryColor)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;">${i + 1}</div>
-        <div>
-          <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;">${esc(String(step.title ?? ''))}</h3>
-          <p style="color:#4b5563;line-height:1.7;">${esc(String(step.description ?? ''))}</p>
-        </div>
-      </div>`).join('')}
-    </div>
-  </div>
-</section>`
-}
-
-// ── NEW: FAQ renderer ─────────────────────────────────────────
-function renderFAQ(c: Record<string, unknown>): string {
-  const faqs = Array.isArray(c.faqs) ? (c.faqs as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#fff;">
-  <div style="max-width:800px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'Frequently Asked Questions'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
-    <div style="display:flex;flex-direction:column;gap:1rem;">
-      ${faqs.map(f => `<details style="border:1.5px solid #e5e7eb;border-radius:8px;padding:1.25rem 1.5rem;">
-        <summary style="font-weight:600;font-size:1rem;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;">
-          ${esc(String(f.question ?? ''))}
-          <span style="font-size:1.25rem;color:#6b7280;">+</span>
-        </summary>
-        <p style="margin-top:0.75rem;color:#4b5563;line-height:1.7;">${esc(String(f.answer ?? ''))}</p>
-      </details>`).join('')}
-    </div>
-  </div>
-</section>`
-}
-
-// ── NEW: Pricing renderer ─────────────────────────────────────
-function renderPricing(c: Record<string, unknown>, t: ThemeConfig): string {
-  const tiers = Array.isArray(c.tiers) ? (c.tiers as Array<Record<string, unknown>>) : []
-  return `<section style="padding:5rem 1.5rem;background:#f9fafb;">
-  <div style="max-width:1100px;margin:0 auto;">
-    <h2 style="text-align:center;font-size:2.25rem;font-weight:700;margin-bottom:${c.subheading ? '0.75rem' : '3rem'};">${esc(String(c.heading ?? 'Pricing'))}</h2>
-    ${c.subheading ? `<p style="text-align:center;color:#6b7280;font-size:1.1rem;margin-bottom:3rem;">${esc(String(c.subheading))}</p>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;align-items:start;">
-      ${tiers.map(tier => {
-        const featured = !!tier.featured
-        const features = Array.isArray(tier.features) ? (tier.features as string[]) : []
-        return `<div style="background:${featured ? esc(t.primaryColor) : '#fff'};color:${featured ? '#fff' : '#222'};border-radius:12px;padding:2.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.1);${featured ? 'transform:scale(1.03);' : ''}">
-          ${tier.badge ? `<div style="display:inline-block;background:${featured ? 'rgba(255,255,255,0.2)' : esc(t.primaryColor)};color:#fff;padding:0.2rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:700;margin-bottom:1rem;">${esc(String(tier.badge))}</div>` : ''}
-          <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">${esc(String(tier.name ?? ''))}</h3>
-          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;">${esc(String(tier.price ?? ''))}</div>
-          ${tier.period ? `<div style="opacity:0.75;font-size:0.9rem;margin-bottom:1.5rem;">${esc(String(tier.period))}</div>` : '<div style="margin-bottom:1.5rem;"></div>'}
-          ${tier.description ? `<p style="opacity:0.85;font-size:0.95rem;margin-bottom:1.5rem;">${esc(String(tier.description))}</p>` : ''}
-          <ul style="list-style:none;padding:0;margin:0 0 2rem;display:flex;flex-direction:column;gap:0.6rem;">
-            ${features.map(f => `<li style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.95rem;">
-              <span style="color:${featured ? '#fff' : esc(t.primaryColor)};font-weight:700;">✓</span>
-              <span>${esc(f)}</span>
-            </li>`).join('')}
-          </ul>
-          ${tier.ctaText ? `<a href="${esc(String(tier.ctaLink ?? '#contact'))}" style="display:block;text-align:center;padding:0.85rem;border-radius:6px;font-weight:700;text-decoration:none;background:${featured ? '#fff' : esc(t.primaryColor)};color:${featured ? esc(t.primaryColor) : '#fff'};">${esc(String(tier.ctaText))}</a>` : ''}
-        </div>`
-      }).join('')}
-    </div>
-  </div>
-</section>`
-}
-
 // ── Section dispatcher ────────────────────────────────────────
 function renderSection(s: SectionRow, theme: ThemeConfig): string {
   const c = s.content as Record<string, unknown>
-  const legacyHtml = typeof (c as { html?: string }).html === 'string'
-    ? (c as { html: string }).html
-    : null
-
-  if (s.type === 'contact')     return renderContact(c, s.id, theme)
-  if (s.type === 'page-header') return renderPageHeader(c, theme)
-  if (s.type === 'features')    return renderFeatures(c, theme)
-  if (s.type === 'process')     return renderProcess(c, theme)
-  if (s.type === 'faq')         return renderFAQ(c)
-  if (s.type === 'pricing')     return renderPricing(c, theme)
-  if (legacyHtml)               return legacyHtml
-
+  const legacyHtml = typeof (c as { html?: string }).html === 'string' ? (c as { html: string }).html : null
   switch (s.type) {
     case 'hero':         return renderHero(c, theme)
+    case 'page-header':  return renderPageHeader(c, theme)
     case 'about':        return renderAbout(c, theme)
     case 'services':     return renderServices(c, theme)
+    case 'features':     return renderFeatures(c, theme)
     case 'team':         return renderTeam(c, theme)
-    case 'testimonials': return renderTestimonials(c)
-    default:             return ''
+    case 'testimonials': return renderTestimonials(c, theme)
+    case 'process':      return renderProcess(c, theme)
+    case 'faq':          return renderFAQ(c)
+    case 'pricing':      return renderPricing(c, theme)
+    case 'gallery':      return renderGallery(c, theme)
+    case 'contact':      return renderContact(c, s.id, theme)
+    default:             return legacyHtml ?? ''
   }
 }
 
 // ── Main page renderer ────────────────────────────────────────
-export function renderPage({
-  sections,
-  theme,
-  siteName,
-  allPages,
-  updateEmail,
-  basePath = '',
-}: RenderPageArgs): string {
-  const primaryColor   = theme?.primaryColor   || '#6c63ff'
-  const secondaryColor = theme?.secondaryColor || '#4a47a3'
-  const fontFamily     = theme?.fontFamily     || 'Inter, sans-serif'
+export function renderPage({ sections, theme, siteName, allPages, updateEmail: updateEmailRaw, basePath = '' }: RenderPageArgs): string {
+  const updateEmail = updateEmailRaw ?? `update@mg.sceneengineering.com`
+  const primary   = theme?.primaryColor   || '#6c63ff'
+  const secondary = theme?.secondaryColor || '#4a47a3'
+  const font      = theme?.fontFamily     || 'Inter, sans-serif'
+  const year      = new Date().getFullYear()
 
-  // Build nav hrefs — use basePath for absolute routes when available
   const navLinks = allPages
-    .filter((p) => p.published)
+    .filter(p => p.published)
     .sort((a, b) => a.nav_order - b.nav_order)
-    .map((p) => {
-      const href = basePath
-        ? (p.is_homepage ? `${basePath}/` : `${basePath}/${p.slug}`)
-        : (p.is_homepage ? './'             : p.slug)
-      return `<a href="${href}" style="text-decoration:none;color:#333;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
-    })
-    .join('')
+    .map(p => {
+      const href = basePath ? (p.is_homepage ? `${basePath}/` : `${basePath}/${p.slug}`) : (p.is_homepage ? './' : p.slug)
+      return `<a href="${href}" class="ss-nav-link" style="text-decoration:none;color:#444;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
+    }).join('')
 
-  const sectionStyles = sections
-    .map((s) => s.section_css || '')
-    .filter(Boolean)
-    .join('\n')
+  const footerLinks = allPages
+    .filter(p => p.published)
+    .sort((a, b) => a.nav_order - b.nav_order)
+    .map(p => {
+      const href = basePath ? (p.is_homepage ? `${basePath}/` : `${basePath}/${p.slug}`) : (p.is_homepage ? './' : p.slug)
+      return `<a href="${href}" style="text-decoration:none;color:#94a3b8;font-size:0.9rem;transition:color 0.15s;">${esc(p.nav_label ?? '')}</a>`
+    }).join('')
 
-  const sectionScripts = sections
-    .map((s) => s.section_js || '')
-    .filter(Boolean)
-    .join('\n')
-
-  const sectionsHtml = sections
-    .filter((s) => s.published)
-    .sort((a, b) => a.order_index - b.order_index)
-    .map((s) => renderSection(s, theme))
-    .join('\n')
-
-  const year = new Date().getFullYear()
+  const sectionStyles  = sections.map(s => s.section_css || '').filter(Boolean).join('\n')
+  const sectionScripts = sections.map(s => s.section_js  || '').filter(Boolean).join('\n')
+  const sectionsHtml   = sections.filter(s => s.published).sort((a, b) => a.order_index - b.order_index).map(s => renderSection(s, theme)).join('\n')
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>${esc(siteName)}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --primary: ${primaryColor};
-      --secondary: ${secondaryColor};
-      --font: ${fontFamily};
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{--primary:${primary};--secondary:${secondary};--font:${font};}
+    html{scroll-behavior:smooth;}
+    body{font-family:var(--font);line-height:1.6;color:#1a1a2e;background:#fff;}
+    img{max-width:100%;height:auto;display:block;}
+    a{color:inherit;}
+    h1,h2,h3,h4{line-height:1.15;letter-spacing:-0.02em;}
+    /* Responsive grids */
+    .ss-grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:3rem;align-items:center;}
+    .ss-grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:1.75rem;}
+    .ss-grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:1.5rem;}
+    /* Card hover lift */
+    .ss-card{transition:transform 0.22s ease,box-shadow 0.22s ease;}
+    .ss-card:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,0.12)!important;}
+    /* Nav underline on hover */
+    .ss-nav-link{position:relative;padding-bottom:3px;}
+    .ss-nav-link::after{content:'';position:absolute;bottom:0;left:0;width:0;height:2px;background:var(--primary);border-radius:1px;transition:width 0.2s ease;}
+    .ss-nav-link:hover{color:var(--primary)!important;}
+    .ss-nav-link:hover::after{width:100%;}
+    /* Buttons */
+    .ss-btn{display:inline-block;padding:0.9rem 2.25rem;border-radius:8px;font-weight:700;font-size:1rem;text-decoration:none;cursor:pointer;border:none;font-family:var(--font);transition:transform 0.15s ease,box-shadow 0.15s ease;}
+    .ss-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.2);}
+    /* Section heading accent bar */
+    .ss-section-heading::after{content:'';display:block;width:48px;height:4px;background:var(--primary);border-radius:2px;margin:0.75rem auto 0;}
+    /* Input focus rings */
+    .ss-input:focus{border-color:var(--primary)!important;box-shadow:0 0 0 3px rgba(108,99,255,0.15);outline:none;}
+    /* FAQ accordion */
+    details.ss-faq summary::-webkit-details-marker{display:none;}
+    details.ss-faq summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+    details.ss-faq .ss-faq-icon{transition:transform 0.2s;}
+    details.ss-faq[open] .ss-faq-icon{transform:rotate(45deg);}
+    /* Mobile nav */
+    #ss-nav-toggle{display:none;}
+    .ss-hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px;}
+    .ss-hamburger span{display:block;width:24px;height:2px;background:#333;border-radius:2px;transition:all 0.25s;}
+    #ss-nav-toggle:checked ~ .ss-nav-links{display:flex!important;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:rgba(255,255,255,0.98);border-bottom:1px solid #e5e7eb;padding:1.5rem 2rem;gap:1.25rem;box-shadow:0 8px 24px rgba(0,0,0,0.08);}
+    #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+    #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(2){opacity:0;}
+    #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    @media(max-width:768px){
+      .ss-hamburger{display:flex;}
+      .ss-nav-links{display:none;}
+      .ss-grid-2{gap:2rem;}
     }
-    html { scroll-behavior: smooth; }
-    body { font-family: var(--font); line-height: 1.6; color: #222; }
-    img { max-width: 100%; height: auto; display: block; }
-    a { color: inherit; }
-    button, .btn {
-      cursor: pointer; border: none; padding: 0.75rem 1.75rem;
-      border-radius: 6px; font-family: var(--font); font-weight: 600;
-      font-size: 1rem; background: var(--primary); color: #fff; transition: opacity 0.2s;
-    }
-    button:hover, .btn:hover { opacity: 0.85; }
-    section { width: 100%; }
-    .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
-    details > summary::-webkit-details-marker { display: none; }
-    details[open] summary span:last-child { transform: rotate(45deg); display: inline-block; }
     ${sectionStyles}
   </style>
 </head>
 <body>
-  <!-- Navigation -->
-  <nav style="position:sticky;top:0;z-index:999;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-    <a href="${basePath ? basePath + '/' : './'}" style="font-weight:800;font-size:1.25rem;text-decoration:none;color:${esc(primaryColor)};">${esc(siteName)}</a>
-    <div style="display:flex;gap:2rem;align-items:center;">${navLinks}</div>
+  <nav style="position:sticky;top:0;z-index:999;background:rgba(255,255,255,0.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;padding:0 2rem;height:68px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 8px rgba(0,0,0,0.06);">
+    <a href="${basePath ? basePath + '/' : './'}" style="font-weight:800;font-size:1.3rem;text-decoration:none;color:${esc(primary)};letter-spacing:-0.02em;">${esc(siteName)}</a>
+    <input type="checkbox" id="ss-nav-toggle" style="display:none;"/>
+    <label for="ss-nav-toggle" aria-label="Toggle menu"><div class="ss-hamburger"><span></span><span></span><span></span></div></label>
+    <div class="ss-nav-links" style="display:flex;gap:2.5rem;align-items:center;">${navLinks}</div>
   </nav>
-
-  <!-- Page sections -->
   ${sectionsHtml}
-
-  <!-- Footer -->
-  <footer style="background:#111827;color:#9ca3af;text-align:center;padding:3rem 1.5rem;font-size:0.875rem;">
-    <p style="font-weight:700;color:#f9fafb;font-size:1rem;margin-bottom:0.5rem;">${esc(siteName)}</p>
-    <p>&copy; ${year} ${esc(siteName)}. All rights reserved.</p>
-    <p style="margin-top:1rem;font-size:0.75rem;color:#6b7280;">
-      Powered by <a href="https://www.sceneengineering.com" style="color:var(--primary);text-decoration:none;">SiteSync</a>
-      &mdash; update this site by emailing
-      <a href="mailto:${updateEmail}" style="color:var(--primary);text-decoration:none;">${updateEmail}</a>
-    </p>
+  <footer style="background:#0f172a;color:#94a3b8;padding:4rem 1.5rem 3rem;">
+    <div style="max-width:1100px;margin:0 auto;text-align:center;">
+      <a href="${basePath ? basePath + '/' : './'}" style="display:inline-block;font-weight:800;color:#f1f5f9;font-size:1.25rem;margin-bottom:1.25rem;text-decoration:none;letter-spacing:-0.02em;">${esc(siteName)}</a>
+      <div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;margin-bottom:2.5rem;">${footerLinks}</div>
+      <div style="border-top:1px solid #1e293b;padding-top:2rem;font-size:0.85rem;">
+        <p>&copy; ${year} ${esc(siteName)}. All rights reserved.</p>
+        <p style="margin-top:0.5rem;font-size:0.75rem;color:#475569;">
+          Powered by <a href="https://www.sceneengineering.com" style="color:var(--primary);text-decoration:none;">SiteSync</a>
+          &mdash; update this site by emailing
+          <a href="mailto:${updateEmail}" style="color:var(--primary);text-decoration:none;">${updateEmail}</a>
+        </p>
+      </div>
+    </div>
   </footer>
   ${sectionScripts ? `<script>\n${sectionScripts}\n</script>` : ''}
 </body>

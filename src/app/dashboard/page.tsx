@@ -561,6 +561,12 @@ export default function DashboardPage() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <Link
+                                    href={`/dashboard/edit/${page.id}`}
+                                    className="text-gray-400 hover:text-white transition"
+                                  >
+                                    Edit
+                                  </Link>
                                   <a
                                     href={
                                       page.is_homepage

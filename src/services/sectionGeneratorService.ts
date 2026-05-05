@@ -346,8 +346,13 @@ Add 1-2 more fields specific to this industry (e.g. company size, number of empl
 {
   "heading": "Our Work",
   "subheading": "A sample of recent projects and results",
-  "images": []
-}`,
+  "items": [
+    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "🏗️" },
+    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "✅" },
+    { "title": "Project Name", "description": "Brief outcome or what was delivered.", "icon": "⭐" }
+  ]
+}
+Generate 3-6 realistic, specific portfolio items or work samples for this business. Use appropriate emojis as icons. Make titles and descriptions specific to their industry.`,
 
     custom: `${base}
 { "html": "<section style=\\"padding:4rem 1.5rem;text-align:center;\\"><h2>Section</h2></section>", "description": "custom section" }`,
