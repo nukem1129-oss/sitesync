@@ -2,40 +2,40 @@
 // SiteSync v2 — Section Generator Service
 // Calls Claude once per section, returns typed content JSON
 // ============================================================
-
 import Anthropic from '@anthropic-ai/sdk'
 import type { SectionType, Theme, SitePlan, PagePlan } from '@/types/site'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
+// ── Quality system prompt used for ALL section generation ─────
+const COPY_SYSTEM = `You are a professional web copywriter creating content for a real business website.
+
+Your writing must be:
+- SPECIFIC: Use the actual business name, industry, and services — never generic placeholders
+- DEEP: Go beyond surface-level. Include real details, processes, outcomes, and expertise
+- UNIQUE: Each page covers a distinct angle. Never repeat what is already on the homepage
+- HUMAN: Varied sentence length, natural voice, professional but approachable
+- CREDIBLE: Specific numbers, timelines, certifications, and outcomes where appropriate
+- COMPLETE: Fill every field fully — no empty strings, no "Lorem ipsum", no "Coming soon"
+
+Return ONLY valid JSON matching the exact schema requested. No markdown fences, no explanation.`
+
 // ── Site planner (homepage) ───────────────────────────────────
-// Plans the full site structure including theme + all pages
-export async function planSite(
-  siteName: string,
-  prompt: string
-): Promise<SitePlan> {
+export async function planSite(siteName: string, prompt: string): Promise<SitePlan> {
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
-    system: `You are a web design planner. Given a business description, return a JSON site plan.
-Always return valid JSON matching this exact shape — no markdown, no explanation, just JSON:
+    system: `You are a web design planner. Return valid JSON matching this shape exactly — no markdown, no explanation:
 {
   "theme": {
-    "primaryColor": "#hex",
-    "secondaryColor": "#hex",
-    "accentColor": "#hex",
-    "backgroundColor": "#hex",
-    "textColor": "#hex",
-    "fontFamily": "'Font Name', sans-serif",
-    "headingFont": "'Font Name', sans-serif",
+    "primaryColor": "#hex", "secondaryColor": "#hex", "accentColor": "#hex",
+    "backgroundColor": "#hex", "textColor": "#hex",
+    "fontFamily": "'Font Name', sans-serif", "headingFont": "'Font Name', sans-serif",
     "borderRadius": "Npx"
   },
   "pages": [
     {
-      "slug": "home",
-      "title": "Home",
-      "navLabel": "Home",
-      "isHomepage": true,
+      "slug": "home", "title": "Home", "navLabel": "Home", "isHomepage": true,
       "sections": [
         { "type": "hero", "label": "Hero" },
         { "type": "about", "label": "About Us" },
@@ -45,16 +45,11 @@ Always return valid JSON matching this exact shape — no markdown, no explanati
     }
   ]
 }
-Section types available: hero, about, services, team, testimonials, contact
-Rules:
-- Always include hero and contact sections on the home page
-- Only add team/testimonials if they make sense for the business
-- Use Google Fonts that match the brand personality
-- Choose cohesive, professional color palettes
-- borderRadius: "4px" for corporate, "12px" for friendly/modern, "0px" for minimal`,
-    messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}\n\nReturn the site plan JSON.` }]
+Section types: hero, about, services, team, testimonials, contact
+Rules: always include hero + contact on home page. Use Google Fonts matching brand personality.
+borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal`,
+    messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}\n\nReturn site plan JSON.` }]
   })
-
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Site planner returned invalid JSON')
@@ -62,7 +57,6 @@ Rules:
 }
 
 // ── Page planner (sub-pages) ──────────────────────────────────
-// Plans sections for a specific sub-page — NOT the homepage
 export async function planPage(
   siteName: string,
   businessDescription: string,
@@ -71,54 +65,45 @@ export async function planPage(
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
-    system: `You are planning sections for a website sub-page. Return ONLY a JSON array, no markdown.
+    system: `You plan sections for a website sub-page. Return ONLY a JSON array — no markdown.
 
 Available section types for sub-pages:
-- page-header: REQUIRED first section — clean page title banner (not a full hero)
-- about: Detailed company/service story or description
-- services: Grid of service cards with details
-- features: Feature or benefit highlights (capabilities, what's included, why choose us)
-- process: Step-by-step how-it-works or workflow breakdown
-- team: Team member profiles
-- testimonials: Client reviews and ratings
-- faq: Frequently asked questions
-- pricing: Pricing tiers or rate cards
-- contact: Contact form with info
-- gallery: Image/portfolio gallery
+- page-header: REQUIRED first section — page title + subtitle banner
+- services: Detailed service cards — deep descriptions, what's included, pricing
+- features: Key capabilities, differentiators, or benefits specific to this page
+- process: Step-by-step workflow, methodology, or how-it-works breakdown
+- team: Team or specialist profiles relevant to this page topic
+- testimonials: Client results and reviews specific to this service/topic
+- faq: Frequently asked questions specific to this page — detailed real answers
+- pricing: Pricing tiers or rate schedule
+- contact: Contact form with fields relevant to this page
+- about: Detailed story, mission, or background section
 
 Rules:
 - ALWAYS start with page-header
-- Pick 3-5 total sections that make sense for this specific page
-- Do NOT include "hero" (homepage only)
-- Services page → page-header, services, process, faq, contact
-- About page → page-header, about, team, features, contact
-- Contact page → page-header, contact
-- Training/Course page → page-header, features, process, faq, contact
-- Portfolio page → page-header, gallery, testimonials, contact
-- Pricing page → page-header, pricing, features, faq, contact
+- Pick 4-5 sections that make real sense for THIS specific page — not generic ones
+- NEVER include "hero" (homepage only)
+- Services/solutions pages → page-header, services, process, testimonials, faq, contact
+- About/company pages → page-header, about, team, features, contact
+- Training/education pages → page-header, features, process, pricing, faq, contact
+- Contact pages → page-header, contact
+- Portfolio/work pages → page-header, testimonials, faq, contact
 
-Return format: [{"type":"page-header","label":"Label"},{"type":"services","label":"Label"}]`,
-    messages: [{
-      role: 'user',
-      content: `Plan the "${pageName}" page for "${siteName}" (${businessDescription}). Return a JSON array of sections.`
-    }]
+Return: [{"type":"page-header","label":"Label"},{"type":"services","label":"Label"}]`,
+    messages: [{ role: 'user', content: `Plan the "${pageName}" page for "${siteName}" — ${businessDescription}. Return JSON array.` }]
   })
-
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   const jsonMatch = text.match(/\[[\s\S]*\]/)
   if (!jsonMatch) {
-    // Fallback plan if AI fails
     return [
       { type: 'page-header', label: pageName },
       { type: 'features', label: `${pageName} Details` },
+      { type: 'faq', label: 'Common Questions' },
       { type: 'contact', label: 'Get In Touch' },
     ]
   }
   const plan = JSON.parse(jsonMatch[0]) as PagePlan
-  // Ensure page-header is always first
-  if (plan[0]?.type !== 'page-header') {
-    plan.unshift({ type: 'page-header', label: pageName })
-  }
+  if (plan[0]?.type !== 'page-header') plan.unshift({ type: 'page-header', label: pageName })
   return plan
 }
 
@@ -126,147 +111,199 @@ Return format: [{"type":"page-header","label":"Label"},{"type":"services","label
 function sectionPrompt(
   type: SectionType,
   siteName: string,
-  pageContext: string,   // e.g. "Services page" or "homepage"
-  theme: Theme
+  pageContext: string,
+  theme: Theme,
+  homepageSummary: string,
 ): string {
-  const base = `Business: ${siteName}\nContext: ${pageContext}\nPrimary color: ${theme.primaryColor}\n\nReturn ONLY valid JSON, no markdown.`
+  const avoidRepeat = homepageSummary
+    ? `\n\nALREADY ON HOMEPAGE (do NOT repeat this): ${homepageSummary}\nThis page must go DEEPER and cover different angles than the homepage.`
+    : ''
+
+  const base = `Business: ${siteName}
+Page context: ${pageContext}
+Primary color: ${theme.primaryColor}${avoidRepeat}
+
+Return ONLY valid JSON:`
 
   const shapes: Partial<Record<SectionType, string>> = {
     hero: `${base}
-Generate hero section JSON:
 {
-  "headline": "compelling headline (max 8 words)",
-  "subheadline": "supporting line (1-2 sentences)",
-  "ctaText": "button text",
+  "headline": "8-word max compelling headline — specific to this business",
+  "subheadline": "2-sentence supporting line with specific value proposition",
+  "ctaText": "Action-oriented button text",
   "ctaLink": "#contact",
   "backgroundType": "gradient",
   "backgroundValue": "linear-gradient(135deg, ${theme.primaryColor} 0%, ${theme.secondaryColor} 100%)"
 }`,
 
     'page-header': `${base}
-Generate a page header section JSON for the "${pageContext}":
 {
-  "heading": "Page Title (the page name, professional and clear)",
-  "subheading": "1-2 sentence description of what this page covers",
+  "heading": "Page title — specific and descriptive (not just the page name repeated)",
+  "subheading": "2 sentences: what this page covers and what the visitor will learn or get",
   "backgroundValue": "linear-gradient(135deg, ${theme.primaryColor} 0%, ${theme.secondaryColor} 100%)"
 }`,
 
     about: `${base}
-Generate about section JSON with detailed, page-specific content:
+Go DEEP — this is not a generic about section. Write about THIS specific aspect of the business context.
 {
-  "heading": "About [Business Name]",
-  "body": "3-4 sentence paragraph — detailed, specific to this page context, not generic",
+  "heading": "Specific heading relevant to this page (not just 'About Us')",
+  "body": "4-5 sentence paragraph — specific details about the company's history, approach, expertise, and what makes them different in this area. Include founding story or key milestone if relevant. Real, specific, not generic.",
+  "mission": "1-2 sentence mission or philosophy statement",
   "stats": [
-    { "value": "10+", "label": "Years Experience" },
-    { "value": "500+", "label": "Clients Served" },
-    { "value": "98%", "label": "Satisfaction Rate" }
+    { "value": "X+", "label": "Specific meaningful metric" },
+    { "value": "X%", "label": "Specific outcome metric" },
+    { "value": "X+", "label": "Another meaningful metric" }
   ]
 }`,
 
     services: `${base}
-Generate services section JSON with 4-6 DETAILED services specific to this page context. Each service should have a meaningful description (2-3 sentences) not just 1 line:
+Each service needs DEEP detail — this is a services PAGE, not a homepage overview. Cover 4-6 services with full descriptions.
 {
-  "heading": "Our Services",
-  "subheading": "brief subheading",
+  "heading": "Services heading specific to this page context",
+  "subheading": "1-2 sentences about your overall approach or what clients get",
+  "intro": "Full introductory paragraph (3-4 sentences) about these services, the problems they solve, and who they're for",
   "services": [
-    { "title": "Service Name", "description": "2-3 sentence detailed description of this specific service", "icon": "🔧", "price": "optional price or range" }
+    {
+      "title": "Specific Service Name",
+      "description": "3-4 sentence detailed description. Explain the process, what's involved, the outcomes clients get, and why this service matters. Be specific to the industry.",
+      "icon": "relevant emoji",
+      "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
+      "idealFor": "One sentence about who this service is for",
+      "price": "Starting at $X or $X-$Y range (realistic for the industry)"
+    }
   ]
 }`,
 
     features: `${base}
-Generate a features/benefits section JSON with 4-6 specific, meaningful highlights for this page context:
+These should be real differentiators or capabilities — specific to this page context, not generic benefits.
 {
-  "heading": "What We Offer",
-  "subheading": "optional supporting line",
+  "heading": "Specific heading (e.g. 'What Sets Our Training Apart' not just 'Features')",
+  "subheading": "1-2 sentences framing these advantages",
+  "intro": "3 sentence paragraph introducing these features in context",
   "features": [
-    { "title": "Feature or Benefit Name", "description": "2 sentence explanation of why this matters", "icon": "✓" }
+    {
+      "title": "Specific capability or differentiator name",
+      "description": "2-3 sentence explanation of WHY this matters and HOW it benefits the client. Be specific, not generic.",
+      "icon": "relevant emoji"
+    }
   ]
-}`,
+}
+Include 5-6 features that are genuinely specific to this business and page context.`,
 
     process: `${base}
-Generate a step-by-step process section JSON with 4-6 clear steps specific to this page context:
+Real step-by-step process — specific to this business and page context. Should feel like their actual methodology.
 {
-  "heading": "How It Works",
-  "subheading": "optional line",
+  "heading": "How We [Do This Thing] — specific verb phrase",
+  "subheading": "1-2 sentences framing the process",
+  "intro": "2-3 sentence paragraph explaining the philosophy behind this process and why it works",
   "steps": [
-    { "number": 1, "title": "Step Name", "description": "2 sentence description of what happens in this step" }
+    {
+      "title": "Step name — action-oriented",
+      "description": "2-3 sentence description of what happens, what the client does, and what the outcome is. Include realistic timeline if appropriate."
+    }
   ]
-}`,
+}
+Include 4-6 steps. Each should feel like a real workflow, not generic phases.`,
 
     team: `${base}
-Generate team section JSON with 3-4 realistic team members relevant to this business:
+Real team members relevant to this business. Create 3-4 credible professionals with specific expertise.
 {
-  "heading": "Meet Our Team",
+  "heading": "Meet the [Team/Specialists/Experts] — specific to this business",
+  "subheading": "1-2 sentences about the team's collective expertise",
   "members": [
-    { "name": "Full Name", "role": "Job Title", "bio": "1-2 sentence bio highlighting their expertise" }
+    {
+      "name": "Full Name (realistic for this industry/region)",
+      "role": "Specific job title relevant to this business",
+      "bio": "2-3 sentence bio highlighting: years of experience, specific expertise/certifications, and a concrete achievement or specialty"
+    }
   ]
 }`,
 
     testimonials: `${base}
-Generate testimonials section JSON with 3 specific, believable testimonials relevant to the services:
+Specific, believable client testimonials — mention actual results, timelines, and outcomes. NOT generic praise.
 {
-  "heading": "What Our Clients Say",
+  "heading": "What Our Clients Say About [Specific Service/Topic]",
+  "subheading": "Optional: a brief framing line about client outcomes",
   "testimonials": [
-    { "quote": "specific testimonial mentioning real results or experience (2-3 sentences)", "author": "Full Name", "role": "Job Title", "company": "Company Name", "rating": 5 }
-  ]
-}`,
-
-    faq: `${base}
-Generate an FAQ section JSON with 5-7 realistic questions people would ask about this specific page context:
-{
-  "heading": "Frequently Asked Questions",
-  "faqs": [
-    { "question": "Specific question someone would ask?", "answer": "Clear, helpful answer (2-3 sentences)." }
-  ]
-}`,
-
-    pricing: `${base}
-Generate a pricing section JSON with 2-4 tiers appropriate for this business:
-{
-  "heading": "Our Pricing",
-  "subheading": "optional line about pricing",
-  "tiers": [
     {
-      "name": "Tier Name",
-      "price": "$X/month or starting at $X",
-      "description": "1 sentence about who this is for",
-      "features": ["Feature 1", "Feature 2", "Feature 3", "Feature 4"],
-      "cta": "Get Started",
-      "highlighted": false
+      "quote": "3-4 sentence quote mentioning: specific problem they had, what TCRisk/the business did, the concrete result (e.g. passed inspection, reduced incidents by X%, saved $X). Should sound like a real person talking.",
+      "author": "Full Name",
+      "role": "Job Title",
+      "company": "Company Name (industry-appropriate)",
+      "rating": 5
     }
   ]
 }
-Set highlighted: true on the recommended/most popular tier.`,
+Include 3 testimonials. Each must reference specific outcomes, not just praise.`,
 
-    contact: `${base}
-Generate contact section JSON with form fields appropriate for this business and page context:
+    faq: `${base}
+REAL questions people ask about this specific service/page topic. Detailed, helpful answers — not one-liners.
 {
-  "heading": "Get In Touch",
-  "subheading": "optional subheading",
-  "email": "info@example.com",
-  "phone": "optional phone",
-  "address": "optional address",
-  "submitLabel": "Send Message",
-  "formFields": [
-    { "type": "text", "name": "name", "label": "Full Name", "placeholder": "John Smith", "required": true },
-    { "type": "email", "name": "email", "label": "Email Address", "placeholder": "john@example.com", "required": true },
-    { "type": "textarea", "name": "message", "label": "Message", "placeholder": "How can we help?", "required": true }
+  "heading": "Frequently Asked Questions",
+  "subheading": "Optional framing line",
+  "faqs": [
+    {
+      "question": "A specific question someone would actually Google or ask in a consultation",
+      "answer": "3-4 sentence thorough answer. Address the concern fully, include specifics (timelines, costs, process details, regulations if relevant). Should feel like advice from an expert."
+    }
   ]
 }
-Available field types: text, email, tel, select (include options array with {value,label} objects), textarea, checkbox
-Add fields specific to this business type and page context.`,
+Include 6-7 FAQs covering: cost/pricing, timeline, process, qualifications, compliance/legal if relevant, what makes them different.`,
+
+    pricing: `${base}
+Realistic pricing tiers for this business. Include what's in each tier and who it's for.
+{
+  "heading": "Investment & Pricing",
+  "subheading": "1-2 sentence about pricing philosophy (transparent, custom, etc.)",
+  "tiers": [
+    {
+      "name": "Tier name",
+      "price": "Realistic price for the industry",
+      "period": "/month or /project or /person",
+      "description": "1-2 sentences about who this tier is for and what situation it fits",
+      "features": [
+        "Specific deliverable or inclusion",
+        "Specific deliverable or inclusion",
+        "Specific deliverable or inclusion",
+        "Specific deliverable or inclusion",
+        "Specific deliverable or inclusion"
+      ],
+      "ctaText": "Get Started",
+      "ctaLink": "#contact",
+      "featured": false,
+      "badge": null
+    }
+  ]
+}
+Include 3 tiers. Set featured: true on the middle/recommended tier. Set badge: "Most Popular" on that tier.`,
+
+    contact: `${base}
+Contact form with fields relevant to this business and page context.
+{
+  "heading": "Get In Touch",
+  "subheading": "1-2 sentences making it easy and inviting to reach out. Mention response time if known.",
+  "email": "info@${siteName.toLowerCase().replace(/\s+/g, '')}.com",
+  "phone": "(555) 000-0000",
+  "address": "City, State (relevant to the business)",
+  "submitLabel": "Action-specific button text (e.g. 'Request a Free Assessment')",
+  "responseTime": "We respond within 1 business day.",
+  "formFields": [
+    { "type": "text", "name": "name", "label": "Full Name", "placeholder": "John Smith", "required": true },
+    { "type": "email", "name": "email", "label": "Email Address", "placeholder": "john@company.com", "required": true },
+    { "type": "tel", "name": "phone", "label": "Phone Number", "placeholder": "(555) 000-0000", "required": false },
+    { "type": "select", "name": "service", "label": "Service of Interest", "required": true, "options": [
+      { "value": "", "label": "Select a service..." }
+    ]},
+    { "type": "textarea", "name": "message", "label": "Tell us about your needs", "placeholder": "Describe your situation, timeline, and what you're hoping to achieve...", "required": true }
+  ]
+}
+Add 1-2 more fields specific to this industry (e.g. company size, number of employees, location, project type).`,
 
     gallery: `${base}
-Generate gallery section JSON:
-{
-  "heading": "Our Work",
-  "subheading": "optional",
-  "images": []
-}`,
+{ "heading": "Our Work", "subheading": "A sample of recent projects and results", "images": [] }`,
 
     custom: `${base}
-Generate a custom section. Return:
-{ "html": "<div>...</div>", "description": "brief description" }`,
+{ "html": "<section style=\"padding:4rem 1.5rem;text-align:center;\"><h2>Section</h2></section>", "description": "custom section" }`,
   }
 
   return shapes[type] || shapes.custom!
@@ -277,21 +314,23 @@ export async function generateSection(
   type: SectionType,
   label: string,
   siteName: string,
-  pageContext: string,   // e.g. "Services page for TCRisk" or "homepage for TCRisk"
-  theme: Theme
+  pageContext: string,
+  theme: Theme,
+  homepageSummary = '',
 ): Promise<{ content: Record<string, unknown>; sectionCss: string | null; sectionJs: string | null }> {
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    messages: [{ role: 'user', content: sectionPrompt(type, siteName, pageContext, theme) }]
+    max_tokens: 4096,
+    system: COPY_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: sectionPrompt(type, siteName, pageContext, theme, homepageSummary)
+    }]
   })
-
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    throw new Error(`Section generator (${type}) returned invalid JSON`)
-  }
-
+  // Extract first complete JSON object or array
+  const jsonMatch = text.match(/[\[\{][\s\S]*[\]\}]/)
+  if (!jsonMatch) throw new Error(`Section generator (${type}) returned invalid JSON`)
   const content = JSON.parse(jsonMatch[0]) as Record<string, unknown>
   return { content, sectionCss: null, sectionJs: null }
 }
