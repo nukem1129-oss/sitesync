@@ -1,9 +1,8 @@
 // ============================================================
 // SiteSync v2 — sub-page renderer
-// Fast path: site_html_cache  |  fallback: render from DB
+// Fast path: site_html_cache | fallback: render from DB
 // Cache key: "{subdomain}/{slug}"
 // ============================================================
-
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { renderPage } from '@/lib/renderer'
@@ -17,20 +16,16 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { subdomain, page } = await params
-
-  // Try cache first for title
   const cacheKey = `${subdomain}/${page}`
   const { data: cache } = await supabaseAdmin
     .from('site_html_cache')
     .select('html_content')
     .eq('subdomain', cacheKey)
     .maybeSingle()
-
   if (cache?.html_content) {
     const titleMatch = cache.html_content.match(/<title>([^<]*)<\/title>/)
     if (titleMatch) return { title: titleMatch[1] }
   }
-
   const { data: site } = await supabaseAdmin
     .from('sites').select('name').eq('subdomain', subdomain).maybeSingle()
   return { title: site?.name ?? 'SiteSync Website' }
@@ -39,6 +34,7 @@ export async function generateMetadata({ params }: Props) {
 export default async function SubPage({ params }: Props) {
   const { subdomain, page: slug } = await params
   const cacheKey = `${subdomain}/${slug}`
+  const basePath = `/sites/${subdomain}`
 
   // ── Fast path: serve from HTML cache ─────────────────────
   const { data: cache } = await supabaseAdmin
@@ -50,13 +46,12 @@ export default async function SubPage({ params }: Props) {
   if (cache?.html_content) {
     return (
       <html suppressHydrationWarning>
-        <body style={{ margin: 0, padding: 0 }}
-          dangerouslySetInnerHTML={{ __html: cache.html_content }} />
+        <body style={{ margin: 0, padding: 0 }} dangerouslySetInnerHTML={{ __html: cache.html_content }} />
       </html>
     )
   }
 
-  // ── Fallback: render directly from DB ────────────────────
+  // ── Fallback: render directly from DB ─────────────────────
   console.log(`[SubPage] Cache miss for ${cacheKey} — rendering from DB`)
 
   const { data: site } = await supabaseAdmin
@@ -97,18 +92,23 @@ export default async function SubPage({ params }: Props) {
     siteName: site.name,
     allPages: (allPageRows ?? []) as PageRow[],
     updateEmail: site.update_email,
+    basePath,
   })
 
   // Write to cache for next time
   await supabaseAdmin.from('site_html_cache').upsert(
-    { site_id: site.id, subdomain: cacheKey, html_content: html, updated_at: new Date().toISOString() },
+    {
+      site_id: site.id,
+      subdomain: cacheKey,
+      html_content: html,
+      updated_at: new Date().toISOString(),
+    },
     { onConflict: 'subdomain' }
   )
 
   return (
     <html suppressHydrationWarning>
-      <body style={{ margin: 0, padding: 0 }}
-        dangerouslySetInnerHTML={{ __html: html }} />
+      <body style={{ margin: 0, padding: 0 }} dangerouslySetInnerHTML={{ __html: html }} />
     </html>
   )
 }
