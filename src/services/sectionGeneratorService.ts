@@ -30,7 +30,7 @@ export async function planSite(siteName: string, prompt: string, existingContent
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
+    max_tokens: 2048,
     system: `You are a web design planner. Return valid JSON matching this shape exactly — no markdown, no explanation:
 {
   "theme": {
@@ -48,20 +48,33 @@ export async function planSite(siteName: string, prompt: string, existingContent
         { "type": "services", "label": "Our Services" },
         { "type": "contact", "label": "Contact" }
       ]
-    }
+    },
+    { "slug": "about", "title": "About", "navLabel": "About", "isHomepage": false, "sections": [] },
+    { "slug": "services", "title": "Services", "navLabel": "Services", "isHomepage": false, "sections": [] }
   ]
 }
 
-Section types: hero, about, services, team, testimonials, contact
-Rules: always include hero + contact on home page. Use Google Fonts matching brand personality.
-borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal`,
+Section types for homepage: hero, about, services, team, testimonials, contact
+Rules:
+- Always include hero + contact on home page. 4-6 sections total on homepage.
+- Include 2-4 additional pages beyond homepage that suit this business (e.g. services, about, team, contact, gallery, faq). Non-homepage pages have empty sections arrays.
+- Use Google Fonts matching brand personality.
+- borderRadius: "4px" corporate, "12px" friendly/modern, "0px" minimal`,
     messages: [{ role: 'user', content: `Business: ${siteName}\nDescription: ${prompt}${contentBlock}\nReturn site plan JSON.` }]
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Site planner returned invalid JSON')
-  return JSON.parse(jsonMatch[0]) as SitePlan
+  if (!jsonMatch) {
+    console.error('planSite: No JSON found in response. Full text:', text)
+    throw new Error('Site planner returned invalid JSON')
+  }
+  try {
+    return JSON.parse(jsonMatch[0]) as SitePlan
+  } catch (parseErr) {
+    console.error('planSite: JSON.parse failed. Matched text:', jsonMatch[0].slice(0, 500))
+    throw parseErr
+  }
 }
 
 // ── Page plan result ──────────────────────────────────────────────
@@ -395,8 +408,17 @@ export async function generateSection(
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
   // Extract first complete JSON object or array
   const jsonMatch = text.match(/[\[\{][\s\S]*[\]\}]/)
-  if (!jsonMatch) throw new Error(`Section generator (${type}) returned invalid JSON`)
-  const content = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+  if (!jsonMatch) {
+    console.error(`generateSection(${type}): No JSON found. Full text:`, text.slice(0, 500))
+    throw new Error(`Section generator (${type}) returned invalid JSON`)
+  }
+  let content: Record<string, unknown>
+  try {
+    content = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+  } catch (parseErr) {
+    console.error(`generateSection(${type}): JSON.parse failed. Matched:`, jsonMatch[0].slice(0, 500))
+    throw parseErr
+  }
 
   return { content, sectionCss: null, sectionJs: null }
 }

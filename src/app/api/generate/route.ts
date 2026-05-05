@@ -67,12 +67,20 @@ export async function POST(request: Request) {
         // ── 4. Scrape existing site if URL provided ───────────
         let existingContent = ''
         if (existingUrl?.trim()) {
-          send({ type: 'status', message: `Reading existing site at ${new URL(existingUrl.trim().startsWith('http') ? existingUrl.trim() : `https://${existingUrl.trim()}`).hostname}…` })
-          const scrapeResult = await scrapeSite(existingUrl)
-          if (scrapeResult.success) {
-            existingContent = scrapeResult.content
-            send({ type: 'status', message: `Read ${scrapeResult.pagesRead} pages — using real content…` })
-          } else {
+          try {
+            const rawUrl = existingUrl.trim()
+            const fullUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
+            const hostname = new URL(fullUrl).hostname
+            send({ type: 'status', message: `Reading existing site at ${hostname}…` })
+            const scrapeResult = await scrapeSite(fullUrl)
+            if (scrapeResult.success && scrapeResult.content) {
+              existingContent = scrapeResult.content
+              send({ type: 'status', message: `Read ${scrapeResult.pagesRead} pages — using real content…` })
+            } else {
+              send({ type: 'status', message: 'Could not read existing site — generating from description instead…' })
+            }
+          } catch (scrapeErr) {
+            console.error('Scrape step failed:', scrapeErr)
             send({ type: 'status', message: 'Could not read existing site — generating from description instead…' })
           }
         }
@@ -242,12 +250,14 @@ export async function POST(request: Request) {
 
         send({ type: 'done', subdomain, siteId: siteId!, suggestedPages })
       } catch (err) {
-        console.error('Generate error:', err)
+        const errMsg = err instanceof Error ? err.message : String(err)
+        const errStack = err instanceof Error ? err.stack : ''
+        console.error('Generate error:', errMsg, errStack)
         // Clean up partial site
         if (siteId) {
           await supabaseAdmin.from('sites').delete().eq('id', siteId)
         }
-        send({ type: 'error', message: 'Site generation failed. Please try again.' })
+        send({ type: 'error', message: `Site generation failed: ${errMsg}` })
       }
       controller.close()
     },
