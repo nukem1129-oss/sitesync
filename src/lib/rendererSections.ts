@@ -6,8 +6,9 @@ import type { ThemeConfig } from '@/types/site'
 
 export function esc(str: string): string {
   return str
-    .replace(/—/g, ' - ')   // em dash  —
-    .replace(/–/g, ' - ')   // en dash  –
+    .replace(/\s*—\s*/g, ' ')   // em dash → space (remove parenthetical constructs)
+    .replace(/\s*–\s*/g, ' ')   // en dash → space
+    .replace(/ - /g, ' ')       // spaced hyphen used as dash → space
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

@@ -18,7 +18,7 @@ Your writing must be:
 - HUMAN: Varied sentence length, natural voice, professional but approachable
 - CREDIBLE: Specific numbers, timelines, certifications, and outcomes where appropriate
 - COMPLETE: Fill every field fully — no empty strings, no "Lorem ipsum", no "Coming soon"
-- CLEAN: Never use em dashes (—) or en dashes (–). Use commas or rewrite the sentence instead.
+- CLEAN: Write tight, direct sentences. Never use em dashes (—), en dashes (–), or spaced hyphens ( - ) as separators. Never insert parenthetical asides mid-sentence. If extra context is needed, start a new sentence instead.
 
 Return ONLY valid JSON matching the exact schema requested. No markdown fences, no explanation.`
 
