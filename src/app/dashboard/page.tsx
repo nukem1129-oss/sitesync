@@ -99,6 +99,9 @@ export default function DashboardPage() {
   const [domainPanels, setDomainPanels] = useState<Record<string, DomainState>>({})
   // Per-site pages UI state keyed by site ID
   const [pagePanels, setPagePanels] = useState<Record<string, PagePanelState>>({})
+  // Sites pending delete confirmation (siteId → true)
+  const [deletingConfirm, setDeletingConfirm] = useState<Record<string, boolean>>({})
+  const [deletingInProgress, setDeletingInProgress] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function load() {
@@ -336,6 +339,28 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDeleteSite(siteId: string) {
+    setDeletingInProgress(prev => ({ ...prev, [siteId]: true }))
+    try {
+      const res = await fetch('/api/delete-site', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, userId }),
+      })
+      if (res.ok) {
+        setWebsites(prev => prev.filter(s => s.id !== siteId))
+        setDeletingConfirm(prev => { const n = { ...prev }; delete n[siteId]; return n })
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Failed to delete site.')
+      }
+    } catch {
+      alert('Delete failed. Please try again.')
+    } finally {
+      setDeletingInProgress(prev => { const n = { ...prev }; delete n[siteId]; return n })
+    }
+  }
+
   async function handleDeletePage(siteId: string, pageId: string) {
     updatePagePanel(siteId, { deletingPageId: pageId })
     try {
@@ -489,10 +514,39 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  {/* Date */}
-                  <p className="text-xs text-gray-600 text-right mb-1">
-                    Updated {new Date(site.updated_at).toLocaleDateString()}
-                  </p>
+                  {/* Date + delete */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      {deletingConfirm[site.id] ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-red-400">Delete &ldquo;{site.name}&rdquo;? This cannot be undone.</span>
+                          <button
+                            onClick={() => handleDeleteSite(site.id)}
+                            disabled={deletingInProgress[site.id]}
+                            className="text-xs px-2 py-0.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white rounded transition"
+                          >
+                            {deletingInProgress[site.id] ? 'Deleting…' : 'Yes, delete'}
+                          </button>
+                          <button
+                            onClick={() => setDeletingConfirm(prev => { const n = { ...prev }; delete n[site.id]; return n })}
+                            className="text-xs text-gray-500 hover:text-gray-300 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeletingConfirm(prev => ({ ...prev, [site.id]: true }))}
+                          className="text-xs text-gray-700 hover:text-red-400 transition"
+                        >
+                          Delete site
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Updated {new Date(site.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
 
                   {/* ── Domain panel ── */}
                   {domainPanel && (
