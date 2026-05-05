@@ -6,8 +6,8 @@ import type { ThemeConfig } from '@/types/site'
 
 export function esc(str: string): string {
   return str
-    .replace(/\s*—\s*/g, ' ')   // em dash → space
-    .replace(/\s*–\s*/g, ' ')   // en dash → space
+    .replace(/\s*—\s*/g, ' ')   // em dash (—) → space: used as sentence separator, never wanted
+    // en dash (–) intentionally NOT stripped: correct typography for number ranges (8–14 weeks)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
