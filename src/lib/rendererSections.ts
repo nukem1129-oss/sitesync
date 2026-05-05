@@ -15,7 +15,7 @@ export function esc(str: string): string {
 }
 
 export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue ?? `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
+  const bg = String(c.backgroundValue || c.backgroundOverlay || `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
   return `<section style="background:${bg};padding:7rem 1.5rem 6rem;text-align:center;color:#fff;position:relative;overflow:hidden;">
   <div style="position:absolute;top:-100px;right:-100px;width:500px;height:500px;border-radius:50%;background:rgba(255,255,255,0.05);pointer-events:none;"></div>
   <div style="position:absolute;bottom:-150px;left:-80px;width:380px;height:380px;border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
@@ -28,7 +28,7 @@ export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
 }
 
 export function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue ?? t.primaryColor)
+  const bg = String(c.backgroundValue || c.backgroundOverlay || t.primaryColor)
   return `<section style="background:${bg};padding:5rem 1.5rem 4rem;color:#fff;position:relative;overflow:hidden;">
   <div style="position:absolute;top:-60px;right:-60px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
   <div style="max-width:800px;margin:0 auto;position:relative;">
