@@ -4,7 +4,7 @@
 // ============================================================
 import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
 import {
-  esc,
+  esc, hexToRgba,
   renderHero, renderPageHeader, renderAbout, renderServices,
   renderFeatures, renderTeam, renderTestimonials, renderProcess,
   renderFAQ, renderPricing, renderGallery,
@@ -18,6 +18,17 @@ interface RenderPageArgs {
   allPages: PageRow[]
   updateEmail: string | null
   basePath?: string
+}
+
+// ── Darken a hex color for themed footer backgrounds ─────────
+function darkenHex(hex: string, lightness = 0.18): string {
+  const full = hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i, (_, r, g, b) => r + r + g + g + b + b)
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(full.replace('#', ''))
+  if (!result) return '#0f172a'
+  const r = Math.round(parseInt(result[1], 16) * lightness)
+  const g = Math.round(parseInt(result[2], 16) * lightness)
+  const b = Math.round(parseInt(result[3], 16) * lightness)
+  return `rgb(${r},${g},${b})`
 }
 
 // ── Option helper ─────────────────────────────────────────────
@@ -137,12 +148,13 @@ export function renderPage({ sections, theme, siteName, allPages, updateEmail: u
       return `<a href="${href}" class="ss-nav-link" style="text-decoration:none;color:#444;font-weight:500;font-size:0.95rem;">${esc(p.nav_label ?? '')}</a>`
     }).join('')
 
+  const footerBg   = darkenHex(primary, 0.18)
   const footerLinks = allPages
     .filter(p => p.published)
     .sort((a, b) => a.nav_order - b.nav_order)
     .map(p => {
       const href = basePath ? (p.is_homepage ? `${basePath}/` : `${basePath}/${p.slug}`) : (p.is_homepage ? './' : p.slug)
-      return `<a href="${href}" style="text-decoration:none;color:#94a3b8;font-size:0.9rem;transition:color 0.15s;">${esc(p.nav_label ?? '')}</a>`
+      return `<a href="${href}" style="text-decoration:none;color:rgba(255,255,255,0.6);font-size:0.9rem;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.6)'">${esc(p.nav_label ?? '')}</a>`
     }).join('')
 
   const sectionStyles  = sections.map(s => s.section_css || '').filter(Boolean).join('\n')
@@ -213,16 +225,16 @@ export function renderPage({ sections, theme, siteName, allPages, updateEmail: u
     <div class="ss-nav-links" style="display:flex;gap:2.5rem;align-items:center;">${navLinks}</div>
   </nav>
   ${sectionsHtml}
-  <footer style="background:#0f172a;color:#94a3b8;padding:4rem 1.5rem 3rem;">
+  <footer style="background:${footerBg};color:rgba(255,255,255,0.6);padding:4rem 1.5rem 3rem;">
     <div style="max-width:1100px;margin:0 auto;text-align:center;">
-      <a href="${basePath ? basePath + '/' : './'}" style="display:inline-block;font-weight:800;color:#f1f5f9;font-size:1.25rem;margin-bottom:1.25rem;text-decoration:none;letter-spacing:-0.02em;">${esc(siteName)}</a>
+      <a href="${basePath ? basePath + '/' : './'}" style="display:inline-block;font-weight:800;color:#fff;font-size:1.25rem;margin-bottom:1.25rem;text-decoration:none;letter-spacing:-0.02em;">${esc(siteName)}</a>
       <div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;margin-bottom:2.5rem;">${footerLinks}</div>
-      <div style="border-top:1px solid #1e293b;padding-top:2rem;font-size:0.85rem;">
+      <div style="border-top:1px solid ${hexToRgba(primary, 0.25)};padding-top:2rem;font-size:0.85rem;">
         <p>&copy; ${year} ${esc(siteName)}. All rights reserved.</p>
-        <p style="margin-top:0.5rem;font-size:0.75rem;color:#475569;">
-          Powered by <a href="https://www.sceneengineering.com" style="color:var(--primary);text-decoration:none;">SiteSync</a>
+        <p style="margin-top:0.5rem;font-size:0.75rem;color:rgba(255,255,255,0.35);">
+          Powered by <a href="https://www.sceneengineering.com" style="color:${esc(primary)};text-decoration:none;">SiteSync</a>
           &mdash; update this site by emailing
-          <a href="mailto:${updateEmail}" style="color:var(--primary);text-decoration:none;">${updateEmail}</a>
+          <a href="mailto:${updateEmail}" style="color:${esc(primary)};text-decoration:none;">${updateEmail}</a>
         </p>
       </div>
     </div>
