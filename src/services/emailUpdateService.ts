@@ -4,7 +4,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { sendMailgunEmail } from '@/lib/mailgunWebhook'
-import type { SectionRow, PageRow, Theme } from '@/types/site'
+import { renderPage } from '@/lib/renderer'
+import type { SectionRow, PageRow, Theme, ThemeConfig } from '@/types/site'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -88,6 +89,99 @@ async function updateSectionContent(
   try { return JSON.parse(match[0]) } catch { return section.content as Record<string, unknown> }
 }
 
+// ── Theme change detection ────────────────────────────────────
+async function isThemeChangeRequest(instructions: string): Promise<boolean> {
+  const msg = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 8,
+    messages: [{
+      role: 'user',
+      content: `Does this instruction ask to change the website's color theme, color scheme, primary colors, brand colors, or fonts? Answer only YES or NO.\n\nInstruction: "${instructions}"`,
+    }],
+  })
+  const text = msg.content[0].type === 'text' ? msg.content[0].text.trim().toUpperCase() : 'NO'
+  return text.startsWith('YES')
+}
+
+// ── Resolve new theme from natural language ───────────────────
+async function resolveNewTheme(currentTheme: Theme, instructions: string, siteName: string): Promise<Theme> {
+  const msg = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    messages: [{
+      role: 'user',
+      content: `The website "${siteName}" wants to update its color theme.
+
+Current theme:
+${JSON.stringify(currentTheme, null, 2)}
+
+Update instruction: "${instructions}"
+
+Return ONLY a JSON object with the updated theme. Rules:
+- Convert color names to accurate hex codes (e.g. "navy blue" → "#1e3a5f", "forest green" → "#228b22", "teal" → "#0d9488")
+- primaryColor and secondaryColor should be harmonious — secondaryColor is typically a darker or more saturated variant of primary
+- Keep ALL existing fields; only update what the instruction specifically mentions
+- Return valid 6-digit hex codes only (e.g. "#2563eb")
+- No markdown, no explanation — return the JSON object only`,
+    }],
+  })
+  const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return currentTheme
+  try {
+    const updated = JSON.parse(match[0]) as Partial<Theme>
+    return { ...currentTheme, ...updated }
+  } catch {
+    return currentTheme
+  }
+}
+
+// ── Re-render every page with the new theme ───────────────────
+async function reRenderAllPages(
+  siteId: string,
+  subdomain: string,
+  siteName: string,
+  newTheme: Theme,
+  updateEmail: string | null,
+): Promise<void> {
+  const { data: pages } = await supabaseAdmin
+    .from('pages')
+    .select('id, slug, title, nav_label, nav_order, is_homepage, published, site_id')
+    .eq('site_id', siteId)
+    .eq('published', true)
+    .order('nav_order')
+
+  if (!pages?.length) return
+  const basePath = `/sites/${subdomain}`
+
+  for (const page of pages) {
+    const { data: sections } = await supabaseAdmin
+      .from('sections')
+      .select('*')
+      .eq('page_id', page.id)
+      .eq('published', true)
+      .order('order_index')
+
+    if (!sections?.length) continue
+
+    const html = renderPage({
+      page: page as PageRow,
+      sections: sections as SectionRow[],
+      theme: newTheme as ThemeConfig,
+      siteName,
+      allPages: pages as PageRow[],
+      updateEmail,
+      basePath,
+    })
+
+    const cacheKey = page.is_homepage ? subdomain : `${subdomain}/${page.slug}`
+    await supabaseAdmin.from('site_html_cache').upsert(
+      { site_id: siteId, subdomain: cacheKey, html_content: html, updated_at: new Date().toISOString() },
+      { onConflict: 'subdomain' },
+    )
+  }
+}
+
 // ── Main entry point ──────────────────────────────────────────
 export async function processSiteUpdate(
   subdomain: string,
@@ -98,7 +192,7 @@ export async function processSiteUpdate(
   // ── 1. Find site ──────────────────────────────────────────
   const { data: site } = await supabaseAdmin
     .from('sites')
-    .select('id, owner_id, name, theme')
+    .select('id, owner_id, name, theme, update_email')
     .eq('subdomain', subdomain)
     .single()
 
@@ -112,6 +206,7 @@ export async function processSiteUpdate(
 
   // ── 2. Authorize ──────────────────────────────────────────
   const authorized = await isAuthorizedSender(site.id, sender, site.owner_id)
+
   if (!authorized) {
     await sendMailgunEmail({
       to: sender,
@@ -121,7 +216,22 @@ export async function processSiteUpdate(
     return { ok: false, status: 403, error: 'Unauthorized sender' }
   }
 
-  // ── 3. Load pages + pick target page ─────────────────────
+  // ── 3. Check for theme/color change request ──────────────
+  const themeChange = await isThemeChangeRequest(instructions)
+  if (themeChange) {
+    const newTheme = await resolveNewTheme(site.theme as Theme, instructions, site.name)
+    await supabaseAdmin.from('sites').update({ theme: newTheme }).eq('id', site.id)
+    await reRenderAllPages(site.id, subdomain, site.name, newTheme, site.update_email ?? null)
+    const siteUrl = `https://sitesync-psi.vercel.app/sites/${subdomain}`
+    await sendMailgunEmail({
+      to: sender,
+      subject: `Re: ${subject}`,
+      text: `Your site "${site.name}" has been updated!\n\nTheme colors updated across all pages.\nView your site: ${siteUrl}\n\nTIP: You can also update content by emailing instructions like:\n  "Update the About page — change our team to include Dr. Martinez"\n  "On the Services page, add a new service: Senior Pet Wellness"\n\nPowered by SiteSync`,
+    })
+    return { ok: true }
+  }
+
+  // ── 4. Load pages + pick target page ─────────────────────
   const { data: allPages } = await supabaseAdmin
     .from('pages').select('id, nav_label, slug, is_homepage, nav_order, published').eq('site_id', site.id).eq('published', true).order('nav_order')
   if (!allPages?.length) return { ok: false, status: 500, error: 'No pages found' }
@@ -129,7 +239,7 @@ export async function processSiteUpdate(
   const targetPageId = await identifyTargetPage(instructions, allPages)
   const targetPage = allPages.find(p => p.id === targetPageId) ?? allPages[0]
 
-  // ── 4. Load sections for target page ─────────────────────
+  // ── 5. Load sections for target page ─────────────────────
   const { data: sections } = await supabaseAdmin
     .from('sections').select('*').eq('page_id', targetPage.id).eq('published', true).order('order_index')
   if (!sections?.length) return { ok: false, status: 500, error: 'No sections found on target page' }
