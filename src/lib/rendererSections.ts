@@ -36,7 +36,7 @@ export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
   if (layout === 'left-text') {
     return `<section style="${bgStyle};padding:5rem 1.5rem;position:relative;overflow:hidden;">
   <div style="position:absolute;inset:0;opacity:0.04;background:radial-gradient(ellipse at top right, #fff 0%, transparent 60%);pointer-events:none;"></div>
-  <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;position:relative;">
+  <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:4rem;align-items:center;position:relative;">
     <div style="color:#fff;">
       <h1 style="font-size:clamp(2rem,4.5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:1.25rem;letter-spacing:-0.03em;">${esc(String(c.headline ?? ''))}</h1>
       ${c.subheadline ? `<p style="font-size:1.1rem;opacity:0.88;margin-bottom:2.5rem;line-height:1.7;max-width:480px;">${esc(String(c.subheadline))}</p>` : ''}
@@ -280,12 +280,12 @@ export function renderServices(c: Record<string, unknown>, t: ThemeConfig): stri
       ${svcs.map((s, i) => {
         const includes = Array.isArray(s.includes) ? (s.includes as string[]) : []
         const isEven = i % 2 === 0
-        return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;${!isEven ? 'direction:rtl;' : ''}">
-          <div style="${!isEven ? 'direction:ltr;' : ''}background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;min-height:280px;display:flex;flex-direction:column;justify-content:center;">
+        return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:3rem;align-items:center;">
+          <div style="order:${isEven ? 0 : 1};background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;min-height:280px;display:flex;flex-direction:column;justify-content:center;">
             <h3 style="font-size:1.6rem;font-weight:800;margin-bottom:0.75rem;line-height:1.2;">${esc(String(s.title ?? ''))}</h3>
             ${s.price ? `<p style="font-size:1.1rem;font-weight:700;opacity:0.9;">${esc(String(s.price))}</p>` : ''}
           </div>
-          <div style="${!isEven ? 'direction:ltr;' : ''}">
+          <div style="order:${isEven ? 1 : 0};">
             <p style="color:#374151;line-height:1.85;font-size:1.05rem;margin-bottom:${includes.length ? '1.5rem' : '0'};">${esc(String(s.description ?? ''))}</p>
             ${includes.length ? `<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.5rem;">
               ${includes.map(inc => `<li style="display:flex;gap:0.6rem;align-items:center;font-size:0.95rem;color:#374151;">
@@ -461,7 +461,7 @@ export function renderTeam(c: Record<string, unknown>, t: ThemeConfig): string {
       ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;">${esc(String(c.subheading))}</p>` : ''}
     </div>
     <div style="display:flex;flex-direction:column;gap:1.5rem;">
-      ${members.map(m => `<div class="ss-card" style="display:flex;gap:2rem;align-items:flex-start;padding:2.5rem;background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border-left:4px solid ${esc(t.primaryColor)};">
+      ${members.map(m => `<div class="ss-card" style="display:flex;flex-wrap:wrap;gap:2rem;align-items:flex-start;padding:2.5rem;background:#fff;border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border-left:4px solid ${esc(t.primaryColor)};">
         ${avatarCircle(m, 80, 1.6)}
         <div style="flex:1;">
           <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.2rem;">${esc(String(m.name ?? ''))}</h3>
@@ -483,7 +483,7 @@ export function renderTeam(c: Record<string, unknown>, t: ThemeConfig): string {
       <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'Our Team'))}</h2>
       ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-top:1.25rem;">${esc(String(c.subheading))}</p>` : ''}
     </div>
-    <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:20px;padding:3rem;display:grid;grid-template-columns:auto 1fr;gap:2.5rem;align-items:center;margin-bottom:2.5rem;color:#fff;">
+    <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:20px;padding:3rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:2.5rem;align-items:center;margin-bottom:2.5rem;color:#fff;">
       ${avatarCircle(lead, 120, 2.5)}
       <div>
         <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;opacity:0.65;margin-bottom:0.5rem;">Founder / Lead</div>
@@ -718,7 +718,7 @@ export function renderProcess(c: Record<string, unknown>, t: ThemeConfig): strin
     </div>
   </div>
   ${steps.map((step, i) => `<div style="padding:4rem 1.5rem;background:${i % 2 === 0 ? '#fff' : tint};">
-    <div style="max-width:900px;margin:0 auto;display:flex;gap:3rem;align-items:center;${i % 2 !== 0 ? 'flex-direction:row-reverse;' : ''}">
+    <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:2rem;align-items:center;${i % 2 !== 0 ? 'flex-direction:row-reverse;' : ''}">
       <div style="flex-shrink:0;width:80px;height:80px;border-radius:50%;background:${esc(t.primaryColor)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.5rem;box-shadow:0 6px 24px ${hexToRgba(t.primaryColor, 0.35)};">${i + 1}</div>
       <div>
         <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.6rem;color:#111;">${esc(String(step.title ?? ''))}</h3>
