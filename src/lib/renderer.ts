@@ -209,10 +209,19 @@ export function renderPage({ sections, theme, siteName, allPages, updateEmail: u
     #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(1){transform:translateY(7px) rotate(45deg);}
     #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(2){opacity:0;}
     #ss-nav-toggle:checked ~ label .ss-hamburger span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    body{overflow-x:hidden;}
+    section{overflow-x:hidden;}
     @media(max-width:768px){
       .ss-hamburger{display:flex;}
-      .ss-nav-links{display:none;}
+      .ss-nav-links{display:none!important;}
       .ss-grid-2{gap:2rem;}
+      /* Collapse ALL hardcoded 2-col grids to single column */
+      [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;direction:ltr!important;}
+      [style*="grid-template-columns:auto 1fr"]{grid-template-columns:1fr!important;justify-items:center;}
+      /* Sections breathe on mobile */
+      section{padding-left:1.25rem!important;padding-right:1.25rem!important;}
+      /* Reset any rtl direction on children inside collapsed grids */
+      [style*="grid-template-columns:1fr 1fr"] > *{direction:ltr!important;}
     }
     ${sectionStyles}
   </style>
