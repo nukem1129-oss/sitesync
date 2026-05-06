@@ -296,10 +296,10 @@ export async function POST(request: Request) {
           update_instructions: prompt,
         })
 
-        // ── 12. Activate site ────────────────────────────────
+        // ── 12. Activate site + persist suggested pages ──────
         await supabaseAdmin
           .from('sites')
-          .update({ status: 'active' })
+          .update({ status: 'active', suggested_pages: suggestedPages })
           .eq('id', siteId!)
 
         send({ type: 'done', subdomain, siteId: siteId!, suggestedPages })

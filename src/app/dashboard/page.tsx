@@ -16,6 +16,7 @@ type Website = {
   update_email: string
   status: string
   custom_domain: string | null
+  suggested_pages: SuggestedPage[]
   created_at: string
   updated_at: string
 }
@@ -115,7 +116,7 @@ export default function DashboardPage() {
       setUserId(session.user.id)
       const { data } = await supabase
         .from('sites')
-        .select('id, name, subdomain, update_email, status, custom_domain, created_at, updated_at')
+        .select('id, name, subdomain, update_email, status, custom_domain, suggested_pages, created_at, updated_at')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: false })
       setWebsites(data ?? [])
@@ -202,12 +203,9 @@ export default function DashboardPage() {
       .eq('site_id', siteId)
       .order('nav_order', { ascending: true })
 
-    // Load any AI-suggested pages from sessionStorage
-    let suggestions: SuggestedPage[] = []
-    try {
-      const stored = sessionStorage.getItem(`suggestedPages_${siteId}`)
-      if (stored) suggestions = JSON.parse(stored) as SuggestedPage[]
-    } catch { /* ignore */ }
+    // Use suggestions from DB (persisted across sessions)
+    const site = websites.find(s => s.id === siteId)
+    const suggestions: SuggestedPage[] = site?.suggested_pages ?? []
 
     updatePagePanel(siteId, { loading: false, pages: (data ?? []) as PageInfo[], suggestions })
   }
@@ -353,17 +351,39 @@ export default function DashboardPage() {
     }
   }
 
-  function handleAddSuggestion(siteId: string, suggestion: SuggestedPage) {
-    // Remove from suggestions list and pre-fill the add-page form
+  async function handleAddSuggestion(siteId: string, suggestion: SuggestedPage) {
     const panel = pagePanels[siteId]
+    const newSuggestions = (panel?.suggestions ?? websites.find(s => s.id === siteId)?.suggested_pages ?? [])
+      .filter(s => s.slug !== suggestion.slug)
+
+    // Remove from DB so it doesn't reappear after browser restart
+    void supabase.from('sites').update({ suggested_pages: newSuggestions }).eq('id', siteId)
+    // Update local site list too so the card badge reflects instantly
+    setWebsites(prev => prev.map(s => s.id === siteId ? { ...s, suggested_pages: newSuggestions } : s))
+
+    // If panel isn't open yet, load pages first (needed for slug collision check)
+    let pages = panel?.pages ?? []
+    if (!panel?.open || !pages.length) {
+      const { data } = await supabase
+        .from('pages')
+        .select('id, slug, nav_label, is_homepage, published')
+        .eq('site_id', siteId)
+        .order('nav_order', { ascending: true })
+      pages = (data ?? []) as PageInfo[]
+    }
+
     updatePagePanel(siteId, {
-      suggestions: (panel?.suggestions ?? []).filter(s => s.slug !== suggestion.slug),
+      open: true,
+      pages,
+      suggestions: newSuggestions,
       adding: true,
       addName: suggestion.name,
       genError: null,
       genDoneSlug: null,
+      generating: false,
     })
-    // Immediately trigger generation
+
+    // Kick off generation after state settles
     setTimeout(() => handleAddPage(siteId), 50)
   }
 
@@ -508,6 +528,26 @@ export default function DashboardPage() {
                     <p className="text-sm text-violet-300 font-mono break-all">{site.update_email}</p>
                   </div>
 
+                  {/* Suggested pages strip — shown when there are unused AI suggestions */}
+                  {(site.suggested_pages?.length ?? 0) > 0 && (
+                    <div className="mb-4 p-3 bg-violet-950/50 border border-violet-800/60 rounded-xl">
+                      <p className="text-xs text-violet-400 font-semibold mb-2">
+                        ✦ Suggested pages — click to generate
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {site.suggested_pages.map(s => (
+                          <button
+                            key={s.slug}
+                            onClick={() => handleAddSuggestion(site.id, s)}
+                            className="text-xs px-2.5 py-1 bg-violet-900/60 hover:bg-violet-700/80 text-violet-200 border border-violet-700 rounded-full transition"
+                          >
+                            + {s.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action row */}
                   <div className="flex items-center gap-2 mb-3">
                     <a
@@ -530,14 +570,15 @@ export default function DashboardPage() {
                     </button>
                     <button
                       onClick={() => togglePagesPanel(site.id)}
-                      className={`flex-1 text-center py-1.5 text-sm rounded-lg transition ${
+                      className={`flex-1 text-center py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1.5 ${
                         pagePanel?.open
                           ? 'bg-violet-900/50 text-violet-300 border border-violet-800'
                           : 'bg-gray-800 hover:bg-gray-700'
                       }`}
                     >
-                      Pages {pagePanel?.open && pagePanel.pages.length > 0
-                        ? `(${pagePanel.pages.length})`
+                      Pages
+                      {pagePanel?.open && pagePanel.pages.length > 0
+                        ? ` (${pagePanel.pages.length})`
                         : ''}
                     </button>
                   </div>
