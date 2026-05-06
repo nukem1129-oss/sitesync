@@ -107,6 +107,9 @@ export default function DashboardPage() {
   // Sites pending delete confirmation (siteId → true)
   const [deletingConfirm, setDeletingConfirm] = useState<Record<string, boolean>>({})
   const [deletingInProgress, setDeletingInProgress] = useState<Record<string, boolean>>({})
+  // Per-site re-render state
+  const [rerenderingInProgress, setRerenderingInProgress] = useState<Record<string, boolean>>({})
+  const [rerenderSuccess, setRerenderSuccess] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function load() {
@@ -409,6 +412,29 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleRerender(siteId: string) {
+    setRerenderingInProgress(prev => ({ ...prev, [siteId]: true }))
+    setRerenderSuccess(prev => { const n = { ...prev }; delete n[siteId]; return n })
+    try {
+      const res = await fetch('/api/rerender-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, userId }),
+      })
+      if (res.ok) {
+        setRerenderSuccess(prev => ({ ...prev, [siteId]: true }))
+        setTimeout(() => setRerenderSuccess(prev => { const n = { ...prev }; delete n[siteId]; return n }), 3000)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Re-render failed.')
+      }
+    } catch {
+      alert('Re-render failed. Please try again.')
+    } finally {
+      setRerenderingInProgress(prev => { const n = { ...prev }; delete n[siteId]; return n })
+    }
+  }
+
   async function handleDeletePage(siteId: string, pageId: string) {
     updatePagePanel(siteId, { deletingPageId: pageId })
     try {
@@ -580,6 +606,22 @@ export default function DashboardPage() {
                       {pagePanel?.open && pagePanel.pages.length > 0
                         ? ` (${pagePanel.pages.length})`
                         : ''}
+                    </button>
+                    <button
+                      onClick={() => handleRerender(site.id)}
+                      disabled={rerenderingInProgress[site.id]}
+                      title="Apply the latest visual improvements to this site without changing its content"
+                      className={`flex-1 text-center py-1.5 text-sm rounded-lg transition disabled:opacity-50 ${
+                        rerenderSuccess[site.id]
+                          ? 'bg-green-900/60 text-green-300 border border-green-700'
+                          : 'bg-gray-800 hover:bg-gray-700'
+                      }`}
+                    >
+                      {rerenderingInProgress[site.id]
+                        ? '↺…'
+                        : rerenderSuccess[site.id]
+                        ? '✓ Done'
+                        : '↺ Re-render'}
                     </button>
                   </div>
 
