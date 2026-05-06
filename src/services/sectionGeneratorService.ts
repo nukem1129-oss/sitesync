@@ -34,9 +34,16 @@ export const LAYOUT_OPTIONS: Record<string, string[]> = {
   faq:          ['accordion', 'two-column', 'numbered'],
 }
 
-export function pickRandomLayout(type: string): string | null {
+export function pickRandomLayout(type: string, usedLayouts?: Set<string>): string | null {
   const options = LAYOUT_OPTIONS[type]
   if (!options?.length) return null
+
+  // Prefer layouts not already used elsewhere on this page
+  if (usedLayouts?.size) {
+    const fresh = options.filter(l => !usedLayouts.has(l))
+    if (fresh.length) return fresh[Math.floor(Math.random() * fresh.length)]
+  }
+
   return options[Math.floor(Math.random() * options.length)]
 }
 
@@ -570,8 +577,9 @@ export async function generateSection(
   theme: ThemeConfig,
   homepageSummary = '',
   existingContent = '',
+  layoutOverride?: string | null,
 ): Promise<{ content: Record<string, unknown>; sectionCss: string | null; sectionJs: string | null }> {
-  const layout = pickRandomLayout(type)
+  const layout = layoutOverride ?? pickRandomLayout(type)
   const rawPrompt = sectionPrompt(type, siteName, pageContext, theme, homepageSummary, layout)
 
   // Inject real content BEFORE the "Return ONLY valid JSON:" line so the AI

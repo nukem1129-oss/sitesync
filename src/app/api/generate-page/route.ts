@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-import { planPage, generateSection } from '@/services/sectionGeneratorService'
+import { planPage, generateSection, pickRandomLayout } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
 import type { SectionRow, PageRow, ThemeConfig } from '@/types/site'
 
@@ -175,6 +175,14 @@ export async function POST(request: Request) {
         // ── 4. Generate each section with rationale as context ─
         const builtSections: SectionRow[] = []
 
+        // Pre-select layouts to avoid the same visual pattern repeating on this page
+        const usedLayouts = new Set<string>()
+        const sectionLayouts = sections.map(sp => {
+          const layout = pickRandomLayout(sp.type, usedLayouts)
+          if (layout) usedLayouts.add(layout)
+          return layout
+        })
+
         for (let i = 0; i < sections.length; i++) {
           const sectionPlan = sections[i]
           send({
@@ -191,7 +199,8 @@ export async function POST(request: Request) {
             pageContext,
             theme,
             '',
-            existingContent
+            existingContent,
+            sectionLayouts[i],
           )
 
           const { data: sectionRow, error: secErr } = await supabaseAdmin

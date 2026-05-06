@@ -4,7 +4,7 @@
 // ============================================================
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-import { planSite, generateSection } from '@/services/sectionGeneratorService'
+import { planSite, generateSection, pickRandomLayout } from '@/services/sectionGeneratorService'
 import { renderPage } from '@/lib/renderer'
 import { scrapeSite } from '@/lib/siteScraper'
 import type { SectionRow, PageRow } from '@/types/site'
@@ -208,6 +208,15 @@ export async function POST(request: Request) {
         const totalSections = homePage.sections.length
         const builtSections: SectionRow[] = []
 
+        // Pre-select layouts across all sections so the same visual pattern
+        // (e.g. card-grid) can't appear multiple times on the same page
+        const usedLayouts = new Set<string>()
+        const sectionLayouts = homePage.sections.map(sp => {
+          const layout = pickRandomLayout(sp.type, usedLayouts)
+          if (layout) usedLayouts.add(layout)
+          return layout
+        })
+
         for (let i = 0; i < homePage.sections.length; i++) {
           const sectionPlan = homePage.sections[i]
           send({
@@ -223,7 +232,8 @@ export async function POST(request: Request) {
             prompt!,
             theme,
             '',
-            existingContent
+            existingContent,
+            sectionLayouts[i],
           )
           // Inject real hero photo if we have one
           if (sectionPlan.type === 'hero' && heroImageUrl) {
