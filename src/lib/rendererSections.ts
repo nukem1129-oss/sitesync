@@ -92,7 +92,7 @@ export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
 
 // ── Page Header ───────────────────────────────────────────────────
 export function renderPageHeader(c: Record<string, unknown>, t: ThemeConfig): string {
-  const bg = String(c.backgroundValue || c.backgroundOverlay || t.primaryColor)
+  const bg = t.primaryColor
   return `<section style="background:${bg};padding:5rem 1.5rem 4rem;color:#fff;position:relative;overflow:hidden;">
   <div style="position:absolute;top:-60px;right:-60px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
   <div style="max-width:800px;margin:0 auto;position:relative;">
