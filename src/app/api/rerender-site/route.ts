@@ -2,6 +2,7 @@
 // SiteSync v2 — /api/rerender-site
 // Clears HTML cache for a site so the next visit re-renders
 // with the latest renderer templates. Content unchanged.
+// NO AI tokens used — pure cache invalidation, zero cost.
 // ============================================================
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'

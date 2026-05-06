@@ -110,6 +110,9 @@ export default function DashboardPage() {
   // Per-site re-render state
   const [rerenderingInProgress, setRerenderingInProgress] = useState<Record<string, boolean>>({})
   const [rerenderSuccess, setRerenderSuccess] = useState<Record<string, boolean>>({})
+  // Bulk re-render all sites
+  const [rerenderAllState, setRerenderAllState] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [rerenderAllProgress, setRerenderAllProgress] = useState({ done: 0, total: 0 })
 
   useEffect(() => {
     async function load() {
@@ -435,6 +438,32 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleRerenderAll() {
+    if (rerenderAllState === 'running' || websites.length === 0) return
+    const confirmed = window.confirm(
+      `Apply latest renderer updates to all ${websites.length} site${websites.length !== 1 ? 's' : ''}?\n\nTest on 1–2 sites first using the per-site ↺ Re-render button. This will update every site at once.`
+    )
+    if (!confirmed) return
+    setRerenderAllState('running')
+    setRerenderAllProgress({ done: 0, total: websites.length })
+
+    let done = 0
+    for (const site of websites) {
+      try {
+        await fetch('/api/rerender-site', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteId: site.id, userId }),
+        })
+      } catch { /* non-fatal */ }
+      done++
+      setRerenderAllProgress({ done, total: websites.length })
+    }
+
+    setRerenderAllState('done')
+    setTimeout(() => setRerenderAllState('idle'), 5000)
+  }
+
   async function handleDeletePage(siteId: string, pageId: string) {
     updatePagePanel(siteId, { deletingPageId: pageId })
     try {
@@ -480,18 +509,45 @@ export default function DashboardPage() {
       </nav>
 
       <main className="max-w-5xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold">Your Websites</h2>
             <p className="text-gray-400 mt-1">Manage and update your AI-generated websites</p>
           </div>
-          <Link
-            href="/dashboard/new"
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg transition"
-          >
-            + New Website
-          </Link>
+          <div className="flex items-center gap-3">
+            {websites.length > 1 && (
+              <button
+                onClick={handleRerenderAll}
+                disabled={rerenderAllState === 'running'}
+                title="Apply latest visual improvements to every site at once"
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition disabled:opacity-50 ${
+                  rerenderAllState === 'done'
+                    ? 'bg-green-800 text-green-200 border border-green-700'
+                    : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
+                }`}
+              >
+                {rerenderAllState === 'running'
+                  ? `↺ Updating… ${rerenderAllProgress.done}/${rerenderAllProgress.total}`
+                  : rerenderAllState === 'done'
+                  ? `✓ All ${rerenderAllProgress.total} sites updated`
+                  : '↺ Re-render All Sites'}
+              </button>
+            )}
+            <Link
+              href="/dashboard/new"
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg transition"
+            >
+              + New Website
+            </Link>
+          </div>
         </div>
+
+        {/* Re-render all — info banner */}
+        {rerenderAllState === 'idle' && websites.length > 1 && (
+          <p className="text-xs text-gray-600 mb-6">
+            Tip: after deploying renderer updates, click <span className="text-gray-400">↺ Re-render All Sites</span> to apply the latest visual improvements to every client site instantly — no content is changed.
+          </p>
+        )}
 
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading…</div>
