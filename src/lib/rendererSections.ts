@@ -131,18 +131,18 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
 
   // ── Layout: numbers-hero ──────────────────────────────────────
   if (layout === 'numbers-hero') {
-    return `<section style="background:#0f172a;padding:6rem 1.5rem;position:relative;overflow:hidden;">
-  <div style="position:absolute;top:0;right:0;width:500px;height:500px;background:${esc(t.primaryColor)};opacity:0.06;border-radius:0 0 0 250px;pointer-events:none;"></div>
+    return `<section style="background:#f8fafc;padding:6rem 1.5rem;position:relative;overflow:hidden;">
+  <div style="position:absolute;top:0;right:0;width:500px;height:500px;background:${esc(t.primaryColor)};opacity:0.04;border-radius:0 0 0 250px;pointer-events:none;"></div>
   <div style="max-width:1100px;margin:0 auto;position:relative;text-align:center;">
-    <h2 style="font-size:2.25rem;font-weight:800;color:#f1f5f9;margin-bottom:${c.subheading ? '0.75rem' : '3.5rem'};">${esc(String(c.heading ?? ''))}</h2>
-    ${c.subheading ? `<p style="color:#94a3b8;font-size:1.1rem;margin-bottom:3.5rem;max-width:580px;margin-left:auto;margin-right:auto;">${esc(String(c.subheading))}</p>` : ''}
+    <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;color:#0f172a;margin-bottom:${c.subheading ? '0.75rem' : '3.5rem'};">${esc(String(c.heading ?? ''))}</h2>
+    ${c.subheading ? `<p style="color:#6b7280;font-size:1.1rem;margin-bottom:3.5rem;max-width:580px;margin-left:auto;margin-right:auto;">${esc(String(c.subheading))}</p>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2.5rem;margin-bottom:${c.body ? '4rem' : '0'};">
       ${stats.map(s => `<div>
         <div style="font-size:3.5rem;font-weight:900;color:${esc(t.primaryColor)};line-height:1;margin-bottom:0.4rem;">${esc(String(s.value ?? ''))}</div>
-        <div style="color:#94a3b8;font-size:0.95rem;">${esc(String(s.label ?? ''))}</div>
+        <div style="color:#6b7280;font-size:0.95rem;">${esc(String(s.label ?? ''))}</div>
       </div>`).join('')}
     </div>
-    ${c.body ? `<p style="color:#cbd5e1;font-size:1.1rem;line-height:1.8;max-width:720px;margin:0 auto;">${esc(String(c.body))}</p>` : ''}
+    ${c.body ? `<p style="color:#4b5563;font-size:1.1rem;line-height:1.8;max-width:720px;margin:0 auto;">${esc(String(c.body))}</p>` : ''}
   </div>
 </section>`
   }
@@ -185,9 +185,9 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
 
   // ── Layout: narrative ─────────────────────────────────────────
   if (layout === 'narrative') {
-    return `<section style="padding:6rem 1.5rem;background:${esc(t.primaryColor)};">
+    return `<section style="padding:6rem 1.5rem;background:#f1f5f9;">
   <div class="ss-grid-2" style="max-width:1100px;margin:0 auto;align-items:center;">
-    <div style="color:#fff;">
+    <div style="background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;">
       <h2 style="font-size:2.25rem;font-weight:800;margin-bottom:1.75rem;line-height:1.2;letter-spacing:-0.02em;">${esc(String(c.heading ?? 'Our Story'))}</h2>
       ${c.body ? `<p style="font-size:1.1rem;line-height:1.95;opacity:0.92;">${esc(String(c.body))}</p>` : ''}
       ${c.mission ? `<p style="margin-top:2rem;font-size:1rem;font-style:italic;opacity:0.8;border-left:3px solid rgba(255,255,255,0.4);padding-left:1.25rem;">${esc(String(c.mission))}</p>` : ''}
@@ -195,8 +195,8 @@ export function renderAbout(c: Record<string, unknown>, t: ThemeConfig): string 
     <div style="display:flex;flex-direction:column;gap:1.5rem;">
       ${image
         ? `<img src="${esc(image)}" alt="${esc(String(c.heading ?? ''))}" style="width:100%;border-radius:16px;object-fit:cover;max-height:400px;" />`
-        : `<div style="background:rgba(255,255,255,0.12);border-radius:16px;height:320px;display:flex;align-items:center;justify-content:center;">
-          <div style="font-size:5rem;font-weight:900;color:rgba(255,255,255,0.2);letter-spacing:-0.05em;">${esc(String(c.heading ?? 'Story')[0])}</div>
+        : `<div style="background:#fff;border-radius:16px;height:320px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 16px rgba(0,0,0,0.07);">
+          <div style="font-size:5rem;font-weight:900;color:${hexToRgba(t.primaryColor, 0.15)};letter-spacing:-0.05em;">${esc(String(c.heading ?? 'Story')[0])}</div>
         </div>`
       }
     </div>
@@ -280,7 +280,6 @@ export function renderServices(c: Record<string, unknown>, t: ThemeConfig): stri
         const isEven = i % 2 === 0
         return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;${!isEven ? 'direction:rtl;' : ''}">
           <div style="${!isEven ? 'direction:ltr;' : ''}background:linear-gradient(135deg,${esc(t.primaryColor)},${esc(t.secondaryColor ?? t.primaryColor)});border-radius:16px;padding:3rem;color:#fff;min-height:280px;display:flex;flex-direction:column;justify-content:center;">
-            <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.7;margin-bottom:0.75rem;">Service ${String(i + 1).padStart(2, '0')}</div>
             <h3 style="font-size:1.6rem;font-weight:800;margin-bottom:0.75rem;line-height:1.2;">${esc(String(s.title ?? ''))}</h3>
             ${s.price ? `<p style="font-size:1.1rem;font-weight:700;opacity:0.9;">${esc(String(s.price))}</p>` : ''}
           </div>
@@ -611,24 +610,18 @@ export function renderTestimonials(c: Record<string, unknown>, t: ThemeConfig): 
 </section>`
   }
 
-  // ── dark-band: deep dark background, no card borders ─────────
+  // ── dark-band: accent-tinted background, white cards ─────────
   if (layout === 'dark-band') {
-    return `<section style="padding:6rem 1.5rem;background:#0f172a;">
+    return `<section style="padding:6rem 1.5rem;background:${tint};">
   <div style="max-width:1100px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:3.5rem;">
-      <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;color:#f1f5f9;">${esc(String(c.heading ?? 'What Our Clients Say'))}</h2>
+      <h2 class="ss-section-heading" style="font-size:2.25rem;font-weight:800;">${esc(String(c.heading ?? 'What Our Clients Say'))}</h2>
     </div>
     <div class="ss-grid-3">
-      ${tms.map(tm => `<div style="padding:2.5rem;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
+      ${tms.map(tm => `<div class="ss-card" style="padding:2.5rem;border-radius:12px;background:#fff;border-top:3px solid ${esc(t.primaryColor)};box-shadow:0 2px 12px rgba(0,0,0,0.06);">
         ${stars(tm)}
-        <p style="color:#e2e8f0;line-height:1.8;margin-bottom:1.5rem;font-size:0.97rem;font-style:italic;">"${esc(String(tm.quote ?? ''))}"</p>
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-          ${authorAvatar(tm)}
-          <div>
-            <div style="font-weight:700;color:#f1f5f9;font-size:0.95rem;">${esc(String(tm.author ?? ''))}</div>
-            ${(tm.role || tm.company) ? `<div style="font-size:0.8rem;color:#64748b;">${[tm.role, tm.company].filter(Boolean).map(x => esc(String(x))).join(' · ')}</div>` : ''}
-          </div>
-        </div>
+        <p style="color:#374151;line-height:1.8;margin-bottom:1.5rem;font-size:0.97rem;font-style:italic;">"${esc(String(tm.quote ?? ''))}"</p>
+        ${authorLine(tm)}
       </div>`).join('')}
     </div>
   </div>
