@@ -22,6 +22,24 @@ Your writing must be:
 
 Return ONLY valid JSON matching the exact schema requested. No markdown fences, no explanation.`
 
+// ── Layout options per section type — randomly picked at generation time ─
+export const LAYOUT_OPTIONS: Record<string, string[]> = {
+  hero:         ['centered', 'left-text', 'minimal', 'bold-impact'],
+  about:        ['split-stats', 'mission-first', 'narrative', 'timeline', 'numbers-hero', 'icon-pillars'],
+  services:     ['card-grid', 'icon-rows', 'showcase', 'accordion', 'feature-strip'],
+  features:     ['card-grid', 'icon-left-rows', 'bold-list'],
+  team:         ['card-grid', 'horizontal-bio', 'featured-lead', 'minimal-list'],
+  testimonials: ['card-grid', 'featured-quote', 'dark-band', 'stacked'],
+  process:      ['numbered-rows', 'cards-horizontal', 'diagonal-steps'],
+  faq:          ['accordion', 'two-column', 'numbered'],
+}
+
+export function pickRandomLayout(type: string): string | null {
+  const options = LAYOUT_OPTIONS[type]
+  if (!options?.length) return null
+  return options[Math.floor(Math.random() * options.length)]
+}
+
 // ── Site planner (homepage) ───────────────────────────────────────
 export async function planSite(siteName: string, prompt: string, existingContent = ''): Promise<SitePlan> {
   const contentBlock = existingContent
@@ -174,6 +192,185 @@ Rules:
   }
 }
 
+// ── Layout-specific schema helpers ────────────────────────────────
+
+function aboutSchema(layout: string, base: string): string {
+  const schemas: Record<string, string> = {
+    'split-stats': `${base}
+Use layout "split-stats" — two columns: bold stats panel left, text right.
+{
+  "layout": "split-stats",
+  "heading": "Specific heading (not just 'About Us')",
+  "body": "4-5 sentences: company history, founding story or key milestone, approach, what makes them different. Real and specific.",
+  "mission": "1-2 sentence core philosophy (optional)",
+  "stats": [
+    { "value": "X+", "label": "Years in Business or similar milestone" },
+    { "value": "XXX+", "label": "Clients Served or projects completed" },
+    { "value": "X%", "label": "Satisfaction rate or another outcome metric" }
+  ]
+}
+Make stat values and labels realistic and specific to this industry.`,
+
+    'mission-first': `${base}
+Use layout "mission-first" — centered mission statement with 3 value pillars below.
+{
+  "layout": "mission-first",
+  "heading": "Specific heading",
+  "mission": "1-2 sentence mission statement or guiding philosophy — the WHY behind this business",
+  "body": "3-4 sentence paragraph about the company background and approach",
+  "values": [
+    { "title": "Core Value Name", "description": "2 sentences explaining what this means in practice for clients" },
+    { "title": "Core Value Name", "description": "2 sentences explaining what this means in practice for clients" },
+    { "title": "Core Value Name", "description": "2 sentences explaining what this means in practice for clients" }
+  ]
+}`,
+
+    'narrative': `${base}
+Use layout "narrative" — immersive full-width storytelling layout.
+{
+  "layout": "narrative",
+  "heading": "Story-driven heading (e.g. 'How We Got Here' or 'Built From the Ground Up')",
+  "body": "5-7 sentence narrative. Tell the founding story: who started it, the problem they saw, how they built the solution, challenges overcome, and what they have achieved. Write as a compelling story — not a corporate bio.",
+  "mission": "1 sentence mission (optional)"
+}`,
+
+    'timeline': `${base}
+Use layout "timeline" — vertical chronological milestones.
+{
+  "layout": "timeline",
+  "heading": "Specific heading about company history (e.g. 'Our Journey' or 'Two Decades of Excellence')",
+  "subheading": "1-2 sentences about this business's growth arc",
+  "milestones": [
+    { "year": "YYYY", "title": "Specific milestone (e.g. 'Founded in Downtown Austin')", "description": "2-3 sentences about this milestone and its significance to the company" },
+    { "year": "YYYY", "title": "Growth milestone", "description": "2-3 sentences" },
+    { "year": "YYYY", "title": "Expansion or achievement milestone", "description": "2-3 sentences" },
+    { "year": "YYYY", "title": "Recent focus or current chapter", "description": "2-3 sentences" }
+  ]
+}
+Use realistic years spread across the company's history. Each milestone must feel real and significant.`,
+
+    'numbers-hero': `${base}
+Use layout "numbers-hero" — bold numbers on dark background, data-forward presentation.
+{
+  "layout": "numbers-hero",
+  "heading": "Specific heading",
+  "subheading": "1-2 sentences",
+  "body": "3-4 sentence description of the company and what they do",
+  "stats": [
+    { "value": "500+", "label": "Specific outcome metric (e.g. 'Projects Completed')" },
+    { "value": "15", "label": "Years of Experience" },
+    { "value": "98%", "label": "Client Satisfaction Rate or similar" },
+    { "value": "24/7", "label": "Availability or another impactful operational metric" }
+  ]
+}
+Make stats bold, specific, and realistic for this industry.`,
+
+    'icon-pillars': `${base}
+Use layout "icon-pillars" — grid of pillars each with an emoji icon, title, and description.
+{
+  "layout": "icon-pillars",
+  "heading": "Specific heading (e.g. 'What Drives Us' or 'Our Approach to Excellence')",
+  "subheading": "1-2 sentences",
+  "pillars": [
+    { "icon": "🎯", "title": "Pillar Name", "description": "2-3 sentences describing this value or capability and what it means for clients" },
+    { "icon": "🔬", "title": "Pillar Name", "description": "2-3 sentences" },
+    { "icon": "🤝", "title": "Pillar Name", "description": "2-3 sentences" },
+    { "icon": "🏆", "title": "Pillar Name", "description": "2-3 sentences" }
+  ]
+}
+Choose 4-6 pillars. Pick relevant emojis that match the industry and each pillar's meaning.`,
+  }
+  return schemas[layout] ?? schemas['split-stats']!
+}
+
+function servicesSchema(layout: string, base: string): string {
+  const schemas: Record<string, string> = {
+    'card-grid': `${base}
+Use layout "card-grid" — clean 3-column card grid.
+{
+  "layout": "card-grid",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your overall approach",
+  "services": [
+    {
+      "title": "Specific Service Name",
+      "description": "3-4 sentence description: what it is, the process, outcomes, and why it matters.",
+      "price": "Starting at $X or $X-$Y range (realistic for the industry)"
+    }
+  ]
+}
+Include 4-6 services.`,
+
+    'icon-rows': `${base}
+Use layout "icon-rows" — numbered rows with detailed descriptions and included items.
+{
+  "layout": "icon-rows",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your overall approach",
+  "services": [
+    {
+      "title": "Specific Service Name",
+      "description": "3-4 sentence description: process, what is involved, outcomes, why it matters.",
+      "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
+      "price": "Starting at $X or $X-$Y range"
+    }
+  ]
+}
+Include 4-6 services. Each must have 3-4 specific includes.`,
+
+    'showcase': `${base}
+Use layout "showcase" — alternating large feature blocks for premium services.
+{
+  "layout": "showcase",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your signature approach",
+  "services": [
+    {
+      "title": "Signature Service Name",
+      "description": "4-5 sentence description: what makes this service premium, the full process, and the concrete outcomes clients achieve.",
+      "includes": ["Key deliverable 1", "Key deliverable 2", "Key deliverable 3", "Key deliverable 4"],
+      "price": "Starting at $X or $X-$Y range"
+    }
+  ]
+}
+Include 3-4 signature services. These should be the most premium, detailed offerings.`,
+
+    'accordion': `${base}
+Use layout "accordion" — expandable service list, great for businesses with many offerings.
+{
+  "layout": "accordion",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your overall approach",
+  "services": [
+    {
+      "title": "Specific Service Name",
+      "description": "3-4 sentence description: process, scope, timeline, and outcomes.",
+      "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
+      "price": "Starting at $X or $X-$Y range (realistic for the industry)"
+    }
+  ]
+}
+Include 5-7 services. The accordion layout handles more items cleanly.`,
+
+    'feature-strip': `${base}
+Use layout "feature-strip" — full-width strips with a colored accent bar, clean and scannable.
+{
+  "layout": "feature-strip",
+  "heading": "Services heading specific to this context",
+  "subheading": "1-2 sentences about your overall approach",
+  "services": [
+    {
+      "title": "Specific Service Name",
+      "description": "2-3 sentence description: what it includes and the key outcome.",
+      "price": "Starting at $X or $X-$Y range"
+    }
+  ]
+}
+Include 4-6 services.`,
+  }
+  return schemas[layout] ?? schemas['card-grid']!
+}
+
 // ── Per-section content prompts ──────────────────────────────────
 function sectionPrompt(
   type: string,
@@ -181,6 +378,7 @@ function sectionPrompt(
   pageContext: string,
   theme: ThemeConfig,
   homepageSummary: string,
+  layout?: string | null,
 ): string {
   const avoidRepeat = homepageSummary
     ? `\n\nALREADY ON HOMEPAGE (do NOT repeat this): ${homepageSummary}\nThis page must go DEEPER and cover different angles than the homepage.`
@@ -192,9 +390,12 @@ Primary color: ${theme.primaryColor}${avoidRepeat}
 
 Return ONLY valid JSON:`
 
+  const ly = layout ?? ''
+
   const shapes: Record<string, string> = {
     hero: `${base}
 {
+  "layout": "${ly || 'centered'}",
   "headline": "8-word max compelling headline — specific to this business",
   "subheadline": "2-sentence supporting line with specific value proposition",
   "ctaText": "Action-oriented button text",
@@ -210,60 +411,16 @@ Return ONLY valid JSON:`
   "backgroundValue": "linear-gradient(135deg, ${theme.primaryColor} 0%, ${theme.secondaryColor} 100%)"
 }`,
 
-    about: `${base}
-Go DEEP — write about THIS specific aspect of the business described in the page context.
+    about: aboutSchema(ly || 'split-stats', base),
 
-First, choose a layout variant that best fits this business and its story:
-- "split-stats": Best when the business has strong measurable results (years in business, clients served, locations, certifications). Renders as a two-column with a bold stats panel.
-- "mission-first": Best for purpose-driven businesses, nonprofits, founder-led brands, or businesses whose WHY matters more than their numbers. Renders as a large mission statement with 3 core values below.
-- "narrative": Best when the origin story or founder journey is compelling and differentiating. Renders as a full-width storytelling layout with immersive body text.
-
-Return this shape exactly (include only the fields relevant to your chosen layout):
-{
-  "layout": "split-stats" | "mission-first" | "narrative",
-  "heading": "Specific heading — not just 'About Us'",
-  "body": "4-5 sentence paragraph: company history, founding story or key milestone, approach, what makes them different. Real and specific.",
-  "mission": "1-2 sentence mission or core philosophy (required for mission-first, optional for others)",
-  "stats": [
-    { "value": "X+", "label": "Specific meaningful metric" },
-    { "value": "X", "label": "Specific outcome metric" },
-    { "value": "X+", "label": "Another meaningful metric" }
-  ],
-  "values": [
-    { "title": "Value or Pillar Name", "description": "2 sentences on what this means in practice" }
-  ]
-}
-Note: stats required for split-stats. values (3 items) required for mission-first. narrative only needs heading + body.`,
-
-    services: `${base}
-Each service needs DEEP detail. Cover 4-6 services.
-
-First, choose a layout variant that best fits this business:
-- "card-grid": Best for businesses with 4-6 distinct, roughly-equal services. Renders as a clean grid of cards.
-- "icon-rows": Best for complex B2B or professional services where the process/detail matters. Renders as rows with a large title, full description, and what's included.
-- "showcase": Best for premium businesses with 2-4 signature offerings they want to feature prominently. Renders as large, bold feature blocks alternating left/right.
-
-Return this shape:
-{
-  "layout": "card-grid" | "icon-rows" | "showcase",
-  "heading": "Services heading specific to this context",
-  "subheading": "1-2 sentences about your overall approach",
-  "services": [
-    {
-      "title": "Specific Service Name",
-      "description": "3-4 sentence detailed description. Process, what's involved, outcomes, why it matters.",
-      "includes": ["Specific deliverable 1", "Specific deliverable 2", "Specific deliverable 3"],
-      "price": "Starting at $X or $X-$Y range (realistic for the industry)"
-    }
-  ]
-}`,
+    services: servicesSchema(ly || 'card-grid', base),
 
     features: `${base}
 Real differentiators or capabilities — specific to this page context, not generic benefits.
 {
+  "layout": "${ly || 'card-grid'}",
   "heading": "Specific heading (e.g. 'What Sets Our Training Apart' not just 'Features')",
   "subheading": "1-2 sentences framing these advantages",
-  "intro": "3-sentence paragraph introducing these features in context",
   "features": [
     {
       "title": "Specific capability or differentiator name",
@@ -271,14 +428,14 @@ Real differentiators or capabilities — specific to this page context, not gene
     }
   ]
 }
-Include 5-6 features that are genuinely specific to this business and page context.`,
+Include 5-6 features genuinely specific to this business and page context.`,
 
     process: `${base}
 Real step-by-step process — specific to this business and page context. Their actual methodology.
 {
+  "layout": "${ly || 'numbered-rows'}",
   "heading": "How We [Do This Thing] — use a specific verb phrase",
   "subheading": "1-2 sentences framing the process",
-  "intro": "2-3 sentence paragraph explaining the philosophy behind this process and why it works",
   "steps": [
     {
       "title": "Step name — action-oriented",
@@ -291,6 +448,7 @@ Include 4-6 steps. Each should feel like a real workflow, not generic phases.`,
     team: `${base}
 Real team members relevant to this business. Create 3-4 credible professionals with specific expertise.
 {
+  "layout": "${ly || 'card-grid'}",
   "heading": "Meet the [Team/Specialists/Experts] — specific to this business",
   "subheading": "1-2 sentences about the team's collective expertise",
   "members": [
@@ -305,11 +463,12 @@ Real team members relevant to this business. Create 3-4 credible professionals w
     testimonials: `${base}
 Specific, believable client testimonials — mention actual results, timelines, and outcomes. NOT generic praise.
 {
+  "layout": "${ly || 'card-grid'}",
   "heading": "What Our Clients Say",
   "subheading": "Real results from real clients",
   "testimonials": [
     {
-      "quote": "3-4 sentence quote mentioning: specific problem they had, what the business did, and the concrete result (e.g. passed inspection, reduced incidents by X%, saved $X). Should sound like a real person.",
+      "quote": "3-4 sentence quote mentioning: specific problem they had, what the business did, and the concrete result. Should sound like a real person.",
       "author": "Full Name",
       "role": "Job Title",
       "company": "Company Name (industry-appropriate)",
@@ -322,6 +481,7 @@ Include 3 testimonials. Each must reference specific outcomes, not just generic 
     faq: `${base}
 REAL questions people ask about this specific topic. Detailed, helpful answers — not one-liners.
 {
+  "layout": "${ly || 'accordion'}",
   "heading": "Frequently Asked Questions",
   "subheading": "Straight answers to the questions we hear most",
   "faqs": [
@@ -411,7 +571,8 @@ export async function generateSection(
   homepageSummary = '',
   existingContent = '',
 ): Promise<{ content: Record<string, unknown>; sectionCss: string | null; sectionJs: string | null }> {
-  const rawPrompt = sectionPrompt(type, siteName, pageContext, theme, homepageSummary)
+  const layout = pickRandomLayout(type)
+  const rawPrompt = sectionPrompt(type, siteName, pageContext, theme, homepageSummary, layout)
 
   // Inject real content BEFORE the "Return ONLY valid JSON:" line so the AI
   // reads the real data first, then follows the JSON schema instruction.
@@ -442,6 +603,11 @@ export async function generateSection(
   } catch (parseErr) {
     console.error(`generateSection(${type}): JSON.parse failed. Matched:`, jsonMatch[0].slice(0, 500))
     throw parseErr
+  }
+
+  // Ensure layout is always stored in content so renderer can dispatch correctly
+  if (layout && !content.layout) {
+    content.layout = layout
   }
 
   return { content, sectionCss: null, sectionJs: null }

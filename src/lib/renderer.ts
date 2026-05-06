@@ -113,7 +113,7 @@ function renderSection(s: SectionRow, theme: ThemeConfig): string {
     case 'team':         return renderTeam(c, theme)
     case 'testimonials': return renderTestimonials(c, theme)
     case 'process':      return renderProcess(c, theme)
-    case 'faq':          return renderFAQ(c)
+    case 'faq':          return renderFAQ(c, theme)
     case 'pricing':      return renderPricing(c, theme)
     case 'gallery':      return renderGallery(c, theme)
     case 'contact':      return renderContact(c, s.id, theme)
