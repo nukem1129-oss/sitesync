@@ -24,7 +24,9 @@ export function esc(str: string): string {
 // ── Hero ──────────────────────────────────────────────────────────
 export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
   const layout = String(c.layout ?? 'centered')
-  const bgColor = String(c.backgroundValue || c.backgroundOverlay || `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`)
+  // Always derive gradient from live theme so email theme-changes update the hero too.
+  // backgroundImage (real photo) is still respected — only the gradient fallback is theme-driven.
+  const bgColor = `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`
   const bgImage = c.backgroundImage ? String(c.backgroundImage) : null
   const bgStyle = bgImage
     ? `background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url('${esc(bgImage)}') center/cover no-repeat`
