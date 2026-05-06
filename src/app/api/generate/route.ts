@@ -11,11 +11,11 @@ import type { SectionRow, PageRow } from '@/types/site'
 
 export const maxDuration = 300
 
-// ── Fetch a hero background image from Pexels (or Unsplash fallback) ─
+// ── Fetch a hero background image ────────────────────────────
 async function fetchHeroImage(query: string): Promise<string | null> {
   if (!query) return null
 
-  // Primary: Pexels API (add PEXELS_API_KEY to Vercel env for best results)
+  // Primary: Pexels API — contextual, high quality (add PEXELS_API_KEY to Vercel env)
   const pexelsKey = process.env.PEXELS_API_KEY
   if (pexelsKey) {
     try {
@@ -30,17 +30,28 @@ async function fetchHeroImage(query: string): Promise<string | null> {
           return pick.src.large2x
         }
       }
-    } catch { /* fall through to Unsplash */ }
+    } catch { /* fall through */ }
   }
 
-  // Fallback: Unsplash Source — resolve redirect to get a stable URL
+  // Fallback: Unsplash API (no key needed for basic access, rate-limited but works)
   try {
-    const url = `https://source.unsplash.com/1600x900/?${encodeURIComponent(query)}`
-    const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(6000) })
-    if (res.ok && res.url && res.url !== url) return res.url
-  } catch { /* ignore */ }
+    const res = await fetch(
+      `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high`,
+      {
+        headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY ?? 'no-key'}` },
+        signal: AbortSignal.timeout(6000),
+      }
+    )
+    if (res.ok) {
+      const data = await res.json() as { urls?: { regular?: string } }
+      if (data.urls?.regular) return data.urls.regular
+    }
+  } catch { /* fall through */ }
 
-  return null
+  // Last resort: Picsum — beautiful random landscape photos, no key needed, always works
+  // Use a hash of the query so the same business type gets a consistent image
+  const seed = query.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 1000
+  return `https://picsum.photos/seed/${seed}/1600/900`
 }
 
 export async function POST(request: Request) {
