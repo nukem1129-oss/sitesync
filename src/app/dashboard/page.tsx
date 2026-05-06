@@ -604,10 +604,24 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {/* Update email */}
-                  <div className="bg-gray-800 rounded-lg px-3 py-2 mb-4">
+                  {/* Update email + client portal */}
+                  <div className="bg-gray-800 rounded-lg px-3 py-2 mb-2">
                     <p className="text-xs text-gray-500 mb-0.5">Email to update your site</p>
                     <p className="text-sm text-violet-300 font-mono break-all">{site.update_email}</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg px-3 py-2 mb-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-0.5">Client portal</p>
+                      <p className="text-xs text-gray-400 font-mono">sitesync-psi.vercel.app/client/{site.subdomain}</p>
+                    </div>
+                    <a
+                      href={`https://sitesync-psi.vercel.app/client/${site.subdomain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-violet-400 hover:text-violet-300 transition ml-2 whitespace-nowrap"
+                    >
+                      Share ↗
+                    </a>
                   </div>
 
                   {/* Suggested pages strip — shown when there are unused AI suggestions */}
