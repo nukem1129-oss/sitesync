@@ -29,7 +29,7 @@ export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
   const bgColor = `linear-gradient(135deg,${t.primaryColor} 0%,${t.secondaryColor ?? t.primaryColor} 100%)`
   const bgImage = c.backgroundImage ? String(c.backgroundImage) : null
   const bgStyle = bgImage
-    ? `background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url('${esc(bgImage)}') center/cover no-repeat`
+    ? `background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url('${bgImage}') center/cover no-repeat`
     : `background:${bgColor}`
 
   // ── left-text: split layout, text left, visual right ─────────

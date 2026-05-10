@@ -135,9 +135,10 @@ export async function POST(request: Request) {
         const homePage = plan.pages.find(p => p.isHomepage) ?? plan.pages[0]
 
         // Fetch a hero background photo in parallel with site record creation
-        const heroImageUrl = plan.heroImageQuery
-          ? await fetchHeroImage(plan.heroImageQuery)
-          : null
+        // Fall back to a generic query built from the site name if AI omits heroImageQuery
+        const imageQuery = plan.heroImageQuery?.trim() ||
+          `${siteName} ${prompt!.split(' ').slice(0, 6).join(' ')}`
+        const heroImageUrl = await fetchHeroImage(imageQuery)
         if (heroImageUrl) {
           send({ type: 'status', message: 'Found a great hero photo…' })
         }
