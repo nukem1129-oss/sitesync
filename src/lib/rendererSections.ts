@@ -64,9 +64,10 @@ export function renderHero(c: Record<string, unknown>, t: ThemeConfig): string {
 </section>`
   }
 
-  // ── bold-impact: near-black bg, massive headline ──────────────
+  // ── bold-impact: near-black bg (or hero photo), massive headline ──
   if (layout === 'bold-impact') {
-    return `<section style="background:#0f172a;padding:8rem 1.5rem 7rem;position:relative;overflow:hidden;">
+    const boldBg = bgImage ? bgStyle : 'background:#0f172a'
+    return `<section style="${boldBg};padding:8rem 1.5rem 7rem;position:relative;overflow:hidden;">
   <div style="position:absolute;top:0;right:0;width:700px;height:700px;background:${esc(t.primaryColor)};opacity:0.06;border-radius:0 0 0 350px;pointer-events:none;"></div>
   <div style="position:absolute;bottom:-100px;left:-100px;width:400px;height:400px;background:${esc(t.secondaryColor ?? t.primaryColor)};opacity:0.04;border-radius:50%;pointer-events:none;"></div>
   <div style="max-width:1000px;margin:0 auto;position:relative;">
